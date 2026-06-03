@@ -20,10 +20,11 @@ type TokenResponse = {
 };
 
 export default function Home() {
-  const apiBase = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8787",
-    [],
-  );
+  const apiBase = useMemo(() => {
+    const configured = process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (configured !== undefined) return configured;
+    return "http://localhost:8787";
+  }, []);
 
   const [status, setStatus] = useState<
     "idle" | "joining" | "joined" | "leaving" | "error"
