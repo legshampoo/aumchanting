@@ -1,113 +1,85 @@
 # Deploy to AWS Lightsail (GitHub Actions)
 
-Push to `main` builds a Docker image, pushes to GitHub Container Registry (GHCR), and SSHs into your Lightsail box to pull and restart.
+Push to `main` builds a Docker image, writes production `.env` from GitHub secrets, and restarts the app on Lightsail. **No manual SSH editing** for app config after initial Docker setup.
 
 ## Architecture
 
 - One container: nginx on port 80 → Next.js (3000) + Express API (8787)
-- Browser calls `/token` on the same host (`NEXT_PUBLIC_API_BASE_URL` is empty in production builds)
+- Production secrets: GitHub **repository secrets** → `/opt/aumchanting/.env` on each deploy
+- Local dev: `services/api/.env` + `apps/web/.env.local` (never committed)
 
-## 1. Lightsail networking
-
-In the Lightsail console → your instance → **Networking**:
-
-- Open **HTTP (80)** (and **443** later if you add TLS)
-
-Copy the **public IP** — you will use it as `LIGHTSAIL_HOST`.
-
-## 2. SSH key for GitHub Actions
-
-On your Mac, create a deploy key (no passphrase is easiest for CI):
+## Local development
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/aumchanting-deploy -N ""
+pnpm install
+cp services/api/.env.example services/api/.env
+cp apps/web/.env.local.example apps/web/.env.local
+# Fill LIVEKIT_* in services/api/.env
+pnpm --filter api dev    # terminal 1
+pnpm --filter web dev    # terminal 2
 ```
 
-Add the **public** key to the server:
+See `deploy/env.example` for variable names.
 
-```bash
-ssh -i ~/.ssh/LIGHTSAIL_DEFAULT_KEY ubuntu@YOUR_LIGHTSAIL_IP
-mkdir -p ~/.ssh && chmod 700 ~/.ssh
-nano ~/.ssh/authorized_keys
-# Paste the contents of ~/.ssh/aumchanting-deploy.pub on its own line, save.
-```
+## One-time Lightsail setup (Docker only)
 
-(`LIGHTSAIL_DEFAULT_KEY` = the key you downloaded when creating the instance.)
-
-## 3. One-time server setup
-
-SSH in as `ubuntu` and install Docker + app directory.
-
-**Option A** — after this repo is on GitHub `main`, with deploy files pushed:
+SSH in once to install Docker and open port 80, **or** run the bootstrap script:
 
 ```bash
 export GITHUB_REPOSITORY=YOUR_GITHUB_USER/aumchanting
 curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/scripts/lightsail-bootstrap.sh" | bash
 ```
 
-**Option B** — manual copy: install Docker (see `scripts/lightsail-bootstrap.sh`), then:
+Add the GitHub Actions deploy public key to `~/.ssh/authorized_keys` (see below). Log out and back in for the `docker` group.
 
-```bash
-sudo mkdir -p /opt/aumchanting
-sudo chown ubuntu:ubuntu /opt/aumchanting
-# Copy deploy/docker-compose.yml and deploy/env.example to /opt/aumchanting/
-nano /opt/aumchanting/.env
-```
+Lightsail **Networking**: allow **HTTP (80)**.
 
-Required in `/opt/aumchanting/.env`:
+## GitHub repository secrets
 
-```env
-GITHUB_REPOSITORY=your-user/aumchanting
-PORT=8787
-LIVEKIT_URL=...
-LIVEKIT_API_KEY=...
-LIVEKIT_API_SECRET=...
-```
+Repo → **Settings** → **Secrets and variables** → **Actions** → **Repository secrets**:
 
-Log out and back in so the `docker` group applies.
-
-## 4. GitHub PAT for pulling images on the server
-
-Private repos produce private GHCR images. Create a **classic** PAT:
-
-- Scope: `read:packages` (and `repo` if the package is private)
-
-Add it as repo secret **`GHCR_READ_TOKEN`**.
-
-## 5. GitHub Actions secrets
-
-Repo → **Settings** → **Secrets and variables** → **Actions**:
-
-| Secret | Value |
-|--------|--------|
-| `LIGHTSAIL_HOST` | Public IP |
+| Secret | Purpose |
+|--------|---------|
+| `LIGHTSAIL_HOST` | Instance public IP |
 | `LIGHTSAIL_USER` | `ubuntu` |
-| `LIGHTSAIL_SSH_PRIVATE_KEY` | Full contents of `~/.ssh/aumchanting-deploy` (private key) |
-| `GHCR_READ_TOKEN` | PAT from step 4 |
+| `LIGHTSAIL_SSH_PRIVATE_KEY` | Deploy key private key |
+| `GHCR_READ_TOKEN` | PAT with `read:packages` (+ `repo` if private) |
+| `LIVEKIT_URL` | LiveKit server URL |
+| `LIVEKIT_API_KEY` | LiveKit API key |
+| `LIVEKIT_API_SECRET` | LiveKit API secret |
 
-`GITHUB_TOKEN` is provided automatically for pushing the image to GHCR.
+`GITHUB_TOKEN` is automatic (pushes image to GHCR).
 
-## 6. Push to deploy
+To change production config: update secrets in GitHub, then push to `main` or re-run the **Deploy** workflow.
+
+## Deploy SSH key (one-time on server)
 
 ```bash
-git add .
-git commit -m "Add Lightsail deploy pipeline"
+ssh-keygen -t ed25519 -f ~/.ssh/aumchanting-deploy -N ""
+```
+
+Add `aumchanting-deploy.pub` to the server's `~/.ssh/authorized_keys` (one line). Use the Lightsail `.pem` for this one SSH session if needed.
+
+## Deploy
+
+```bash
 git push origin main
 ```
 
-Watch **Actions** → **Deploy**. When green, open `http://YOUR_LIGHTSAIL_IP`.
+Open `http://YOUR_LIGHTSAIL_IP` when Actions is green.
 
 ## Note on Node version
 
-The Docker image uses **Node 22** because **pnpm 11** requires Node ≥ 22.13. Local dev can use Node 20 with an older pnpm, or match Node 22 via `nvm`.
+Docker uses **Node 22** (required by pnpm 11 in the image build).
 
 ## Troubleshooting
 
-- **401 pulling image**: `GHCR_READ_TOKEN` wrong or missing `read:packages`.
-- **SSH failed**: check `LIGHTSAIL_SSH_PRIVATE_KEY`, IP, and `authorized_keys` on the server.
-- **502 / empty page**: `docker logs` on the server: `docker compose -f /opt/aumchanting/docker-compose.yml logs -f`
-- **LiveKit errors**: verify `/opt/aumchanting/.env` on the server.
+- **Missing secret**: workflow fails at "Check required secrets".
+- **401 pulling image**: fix `GHCR_READ_TOKEN`.
+- **SSH failed**: `LIGHTSAIL_SSH_PRIVATE_KEY`, IP, `authorized_keys`.
+- **LiveKit errors**: update `LIVEKIT_*` repository secrets and re-run deploy.
+- **Container logs** (only if debugging): `docker compose -f /opt/aumchanting/docker-compose.yml logs -f`
 
-## HTTPS (optional later)
+## HTTPS (optional)
 
-Point a domain A-record at the Lightsail IP, then add Caddy or Certbot in front of nginx, or terminate TLS in Lightsail’s load balancer.
+Point a domain A-record at the Lightsail IP; add Caddy/Certbot or a load balancer later.

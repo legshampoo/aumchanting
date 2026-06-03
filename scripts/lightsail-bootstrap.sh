@@ -33,16 +33,9 @@ sudo chown "$USER:$USER" /opt/aumchanting
 
 curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/deploy/docker-compose.yml" \
   -o /opt/aumchanting/docker-compose.yml
-curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/deploy/env.example" \
-  -o /opt/aumchanting/.env
-
-if ! grep -q '^GITHUB_REPOSITORY=' /opt/aumchanting/.env 2>/dev/null; then
-  echo "GITHUB_REPOSITORY=${GITHUB_REPOSITORY}" >> /opt/aumchanting/.env
-fi
-
 echo ""
 echo "Bootstrap done. Next:"
-echo "  1) Edit /opt/aumchanting/.env and set LIVEKIT_* secrets"
+echo "  1) Add LIVEKIT_* and deploy secrets in GitHub (see DEPLOY.md)"
 echo "  2) Log out and back in (docker group), or run: newgrp docker"
 echo "  3) Open Lightsail firewall: HTTP (80), HTTPS (443) if you add TLS later"
 echo "  4) Add GitHub Actions secrets (see DEPLOY.md)"

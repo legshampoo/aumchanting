@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/${GITHUB_REPOSITORY:-youarmy/aumchanting}:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-legshampoo/aumchanting}:latest
     restart: unless-stopped
     ports:
       - "80:80"

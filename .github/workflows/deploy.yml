@@ -18,6 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check required secrets
+        run: |
+          missing=0
+          [ -z "${{ secrets.LIVEKIT_URL }}" ] && echo "Missing repository secret: LIVEKIT_URL" && missing=1
+          [ -z "${{ secrets.LIVEKIT_API_KEY }}" ] && echo "Missing repository secret: LIVEKIT_API_KEY" && missing=1
+          [ -z "${{ secrets.LIVEKIT_API_SECRET }}" ] && echo "Missing repository secret: LIVEKIT_API_SECRET" && missing=1
+          [ "$missing" -eq 1 ] && exit 1
+
       - name: Set image name (GHCR requires lowercase)
         run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
@@ -45,7 +53,7 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
-          source: "deploy/docker-compose.yml,deploy/env.example"
+          source: "deploy/docker-compose.yml"
           target: "/tmp/aumchanting-deploy"
           strip_components: 1
 
@@ -55,35 +63,33 @@ jobs:
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
-          envs: GHCR_READ_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY
+          envs: GHCR_READ_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY,LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET
           script: |
             set -euo pipefail
             if ! command -v docker >/dev/null 2>&1; then
-              echo "Docker is not installed. SSH in and run scripts/lightsail-bootstrap.sh first."
+              echo "Docker is not installed. Run scripts/lightsail-bootstrap.sh once on the instance."
               exit 1
             fi
             sudo mkdir -p /opt/aumchanting
             sudo chown -R "$USER:$USER" /opt/aumchanting
             cp /tmp/aumchanting-deploy/docker-compose.yml /opt/aumchanting/
-            REPO_LC="$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
-            if [ ! -f /opt/aumchanting/.env ]; then
-              cp /tmp/aumchanting-deploy/env.example /opt/aumchanting/.env
-              echo "GITHUB_REPOSITORY=${REPO_LC}" >> /opt/aumchanting/.env
-              echo "Created /opt/aumchanting/.env — add LIVEKIT_* on the server, then re-run deploy."
-              exit 1
-            fi
-            if ! grep -q '^GITHUB_REPOSITORY=' /opt/aumchanting/.env; then
-              echo "GITHUB_REPOSITORY=${REPO_LC}" >> /opt/aumchanting/.env
-            fi
+            umask 077
+            {
+              printf '%s=%s\n' PORT 8787
+              printf '%s=%s\n' LIVEKIT_URL "$LIVEKIT_URL"
+              printf '%s=%s\n' LIVEKIT_API_KEY "$LIVEKIT_API_KEY"
+              printf '%s=%s\n' LIVEKIT_API_SECRET "$LIVEKIT_API_SECRET"
+            } > /opt/aumchanting/.env
+            chmod 600 /opt/aumchanting/.env
             cd /opt/aumchanting
-            if ! grep -q '^LIVEKIT_URL=.\+' /opt/aumchanting/.env; then
-              echo "LIVEKIT_URL is empty in /opt/aumchanting/.env — set LiveKit secrets on the server, then re-run deploy."
-              exit 1
-            fi
+            REPO_LC="$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
             echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
             export GITHUB_REPOSITORY="${REPO_LC}"
             docker compose pull
