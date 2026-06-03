@@ -39,6 +39,16 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=
 
+      - name: Upload deploy config
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
+          source: "deploy/docker-compose.yml,deploy/env.example"
+          target: "/tmp/aumchanting-deploy"
+          strip_components: 1
+
       - name: Deploy on Lightsail
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -52,9 +62,30 @@ jobs:
           envs: GHCR_READ_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY
           script: |
             set -euo pipefail
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "Docker is not installed. SSH in and run scripts/lightsail-bootstrap.sh first."
+              exit 1
+            fi
+            sudo mkdir -p /opt/aumchanting
+            sudo chown -R "$USER:$USER" /opt/aumchanting
+            cp /tmp/aumchanting-deploy/docker-compose.yml /opt/aumchanting/
+            REPO_LC="$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+            if [ ! -f /opt/aumchanting/.env ]; then
+              cp /tmp/aumchanting-deploy/env.example /opt/aumchanting/.env
+              echo "GITHUB_REPOSITORY=${REPO_LC}" >> /opt/aumchanting/.env
+              echo "Created /opt/aumchanting/.env — add LIVEKIT_* on the server, then re-run deploy."
+              exit 1
+            fi
+            if ! grep -q '^GITHUB_REPOSITORY=' /opt/aumchanting/.env; then
+              echo "GITHUB_REPOSITORY=${REPO_LC}" >> /opt/aumchanting/.env
+            fi
             cd /opt/aumchanting
+            if ! grep -q '^LIVEKIT_URL=.\+' /opt/aumchanting/.env; then
+              echo "LIVEKIT_URL is empty in /opt/aumchanting/.env — set LiveKit secrets on the server, then re-run deploy."
+              exit 1
+            fi
             echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-            export GITHUB_REPOSITORY="$GITHUB_REPOSITORY"
+            export GITHUB_REPOSITORY="${REPO_LC}"
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
