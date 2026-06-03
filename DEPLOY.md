@@ -97,6 +97,10 @@ git push origin main
 
 Watch **Actions** → **Deploy**. When green, open `http://YOUR_LIGHTSAIL_IP`.
 
+## Note on Node version
+
+The Docker image uses **Node 22** because **pnpm 11** requires Node ≥ 22.13. Local dev can use Node 20 with an older pnpm, or match Node 22 via `nvm`.
+
 ## Troubleshooting
 
 - **401 pulling image**: `GHCR_READ_TOKEN` wrong or missing `read:packages`.
