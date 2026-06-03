@@ -13,7 +13,7 @@ COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL=
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN pnpm --filter web build && pnpm --filter api build
-RUN pnpm --filter api deploy --prod /app/api
+RUN pnpm --filter api deploy --prod --legacy /app/api
 
 FROM node:20-bookworm-slim AS runner
 RUN apt-get update \
