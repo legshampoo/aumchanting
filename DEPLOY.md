@@ -36,7 +36,7 @@ Lightsail **Networking**: allow **HTTP (80)**.
 
 ## GitHub repository secrets
 
-Repo → **Settings** → **Secrets and variables** → **Actions** → **Repository secrets**:
+Repo → **Settings** → **Secrets and variables** → **Actions** → **Repository secrets** (not “Environment secrets” unless you also add `environment:` to the workflow):
 
 | Secret | Purpose |
 |--------|---------|
@@ -74,7 +74,7 @@ Docker uses **Node 22** (required by pnpm 11 in the image build).
 
 ## Troubleshooting
 
-- **Missing secret**: workflow fails at "Check required secrets".
+- **Missing secret**: workflow lists names at “Check required secrets”. Add them under **Repository secrets** (exact names: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`). Environment-only secrets are invisible to this workflow.
 - **401 pulling image**: fix `GHCR_READ_TOKEN`.
 - **SSH failed**: `LIGHTSAIL_SSH_PRIVATE_KEY`, IP, `authorized_keys`.
 - **LiveKit errors**: update `LIVEKIT_*` repository secrets and re-run deploy.
