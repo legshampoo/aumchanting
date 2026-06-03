@@ -80,6 +80,43 @@ Docker uses **Node 22** (required by pnpm 11 in the image build).
 - **LiveKit errors**: update `LIVEKIT_*` repository secrets and re-run deploy.
 - **Container logs** (only if debugging): `docker compose -f /opt/aumchanting/docker-compose.yml logs -f`
 
-## HTTPS (optional)
+## HTTPS + domain (Cloudflare + Lightsail)
 
-Point a domain A-record at the Lightsail IP; add Caddy/Certbot or a load balancer later.
+Browsers require **HTTPS** for the microphone. With Cloudflare in front of Lightsail, visitors use `https://aumchanting.com` while the origin can stay on HTTP (port 80).
+
+### 1. GoDaddy → Cloudflare nameservers
+
+In **GoDaddy** → domain → **Nameservers** → use Cloudflare’s two nameservers (if not already). DNS is managed in Cloudflare, not GoDaddy records.
+
+### 2. Cloudflare DNS
+
+**DNS** → **Records**:
+
+| Type | Name | Content | Proxy |
+|------|------|---------|-------|
+| A | `@` | Your Lightsail **public IP** | Proxied (orange cloud) |
+| A or CNAME | `www` | `@` or same IP | Proxied |
+
+### 3. Cloudflare SSL/TLS
+
+**SSL/TLS** → **Overview** → encryption mode **Flexible** (easiest while Lightsail only serves HTTP on port 80).
+
+Also turn on **Always Use HTTPS** under **SSL/TLS** → **Edge Certificates**.
+
+Later you can move to **Full (strict)** with a cert on the server (Caddy/Certbot).
+
+### 4. Lightsail firewall
+
+Instance → **Networking** → allow **HTTP (80)**. For Flexible SSL, Cloudflare talks to origin on port 80. (Add **443** when you terminate TLS on the box.)
+
+### 5. Wait and test
+
+Propagation often takes a few minutes up to an hour. Then open `https://aumchanting.com` and use **Join + Mic**.
+
+LiveKit media uses `LIVEKIT_URL` from your API token (usually `wss://….livekit.cloud`), not your domain—no extra DNS for that if keys already work.
+
+### Troubleshooting
+
+- **522 / timeout**: wrong IP, firewall blocking 80, or container not running (`docker compose ps` on server).
+- **Too many redirects**: set SSL mode to **Flexible** (not Full) until origin has HTTPS.
+- **Mic still blocked**: confirm the address bar shows `https://`, not `http://`.

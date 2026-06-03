@@ -35,12 +35,20 @@ export default function Home() {
   const [micEnabled, setMicEnabled] = useState<boolean>(false);
   const [micLevel, setMicLevel] = useState<number>(0);
   const [activeSpeakerCount, setActiveSpeakerCount] = useState<number>(0);
+  const [micAvailable, setMicAvailable] = useState(false);
   const audioElsByTrackSid = useRef(new Map<string, HTMLMediaElement>());
   const audioBinRef = useRef<HTMLDivElement | null>(null);
   const localMicTrackRef = useRef<LocalAudioTrack | null>(null);
   const micLevelRafRef = useRef<number | null>(null);
   const micAudioCtxRef = useRef<AudioContext | null>(null);
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
+
+  useEffect(() => {
+    setMicAvailable(
+      typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices?.getUserMedia,
+    );
+  }, []);
 
   useEffect(() => {
     function syncParticipants() {
@@ -181,6 +189,11 @@ export default function Home() {
       await room.connect(data.url, data.token);
 
       if (opts.withMic) {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error(
+            "Microphone needs HTTPS (or localhost). On HTTP use “Listen only”, or add TLS to your site.",
+          );
+        }
         // Mic only (avoid camera permission prompt).
         // Disable voice-style processing that can gate steady tones (aum).
         const micTrack = await createLocalAudioTrack({
@@ -320,7 +333,14 @@ export default function Home() {
           <button
             className="h-11 rounded-full bg-zinc-950 px-6 text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950"
             onClick={() => join({ withMic: true })}
-            disabled={status === "joining" || status === "joined"}
+            disabled={
+              status === "joining" || status === "joined" || !micAvailable
+            }
+            title={
+              micAvailable
+                ? undefined
+                : "Microphone requires HTTPS (not available on plain HTTP)"
+            }
           >
             Join + Mic
           </button>
@@ -347,8 +367,9 @@ export default function Home() {
         />
 
         <p className="text-xs text-zinc-500 dark:text-zinc-500 text-center max-w-md">
-          Tip: if you join with mic, use headphones to avoid feedback. If audio
-          feels choppy, try “Listen only”, or use a second device.
+          {micAvailable
+            ? "Tip: if you join with mic, use headphones to avoid feedback. If audio feels choppy, try “Listen only”."
+            : "This site is on HTTP: use “Listen only” to hear the room. “Join + Mic” needs HTTPS (add a domain + TLS)."}
         </p>
       </main>
     </div>
