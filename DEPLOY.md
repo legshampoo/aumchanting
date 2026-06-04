@@ -126,6 +126,6 @@ LiveKit media uses `LIVEKIT_URL` from your API token (usually `wss://….livekit
 
 ### Troubleshooting
 
-- **522 / timeout**: wrong IP, firewall blocking 80, or container not running (`docker compose ps` on server).
+- **404 on deploy curl**: private repos cannot use `raw.githubusercontent.com` without auth; deploy copies `docker-compose.yml` over SCP from the Actions checkout.
 - **Too many redirects**: set SSL mode to **Flexible** (not Full) until origin has HTTPS.
 - **Mic still blocked**: confirm the address bar shows `https://`, not `http://`.
