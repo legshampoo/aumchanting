@@ -39,16 +39,6 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=
 
-      - name: Upload deploy config
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
-          source: "deploy/docker-compose.yml"
-          target: "/tmp/aumchanting-deploy"
-          strip_components: 1
-
       - name: Deploy on Lightsail
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -71,7 +61,9 @@ jobs:
             fi
             sudo mkdir -p /opt/aumchanting
             sudo chown -R "$USER:$USER" /opt/aumchanting
-            cp /tmp/aumchanting-deploy/docker-compose.yml /opt/aumchanting/
+            REPO_LC="$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+            curl -fsSL "https://raw.githubusercontent.com/${REPO_LC}/main/deploy/docker-compose.yml" \
+              -o /opt/aumchanting/docker-compose.yml
             umask 077
             {
               printf '%s=%s\n' PORT 8787
@@ -81,7 +73,6 @@ jobs:
             } > /opt/aumchanting/.env
             chmod 600 /opt/aumchanting/.env
             cd /opt/aumchanting
-            REPO_LC="$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
             echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
             export GITHUB_REPOSITORY="${REPO_LC}"
             docker compose pull

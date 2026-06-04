@@ -107,7 +107,16 @@ Later you can move to **Full (strict)** with a cert on the server (Caddy/Certbot
 
 ### 4. Lightsail firewall
 
-Instance → **Networking** → allow **HTTP (80)**. For Flexible SSL, Cloudflare talks to origin on port 80. (Add **443** when you terminate TLS on the box.)
+Instance → **Networking** → **IPv4 Firewall** — allow from **Anywhere** (`0.0.0.0/0`):
+
+| Application | Port | Why |
+|-------------|------|-----|
+| **SSH** | 22 | GitHub Actions deploy (runners use random IPs) |
+| **HTTP** | 80 | Site + Cloudflare (Flexible SSL) |
+
+GitHub Actions cannot deploy if SSH (22) is restricted to your home IP only.
+
+Attach a **static IP** in Lightsail so the public IP does not change; update `LIGHTSAIL_HOST` and Cloudflare DNS if it does.
 
 ### 5. Wait and test
 

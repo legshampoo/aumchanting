@@ -21,4 +21,4 @@ pnpm --filter web dev
 
 See [DEPLOY.md](./DEPLOY.md). Secrets live in **GitHub Actions**; each push to `main` deploys to Lightsail.
 
-edit for push again
+edit for push again and again 
