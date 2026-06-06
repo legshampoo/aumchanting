@@ -209,6 +209,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@capacitor/android':
+        specifier: ^7.6.6
+        version: 7.6.6(@capacitor/core@7.6.6)
       '@capacitor/core':
         specifier: ^7.6.6
         version: 7.6.6
@@ -362,6 +365,11 @@ packages:
 
   '@bufbuild/protobuf@1.10.1':
     resolution: {integrity: sha512-wJ8ReQbHxsAfXhrf9ixl0aYbZorRuOWpBNzm8pL8ftmSxQx/wnJD5Eg861NwJU/czy2VXFIebCeZnZrI9rktIQ==}
+
+  '@capacitor/android@7.6.6':
+    resolution: {integrity: sha512-PnO8NFjpJJmMINjQQicPwS+hTMWFReIYJcfj8dzb/rRPgElxj+PBJi+6p9X4LUHd2yin8O5FGuqjNOT5BrvWvw==}
+    peerDependencies:
+      '@capacitor/core': ^7.6.0
 
   '@capacitor/cli@7.6.6':
     resolution: {integrity: sha512-gZm1c40trhPKi4r6cGdgd/WaW20+yunq5XEmWm/ylHzG6Qd72gAxarihIdXptoxTz4rs9JIU6f60EnTNncvXeQ==}
@@ -3062,6 +3070,10 @@ snapshots:
       '@babel/helper-validator-identifier': 7.29.7
 
   '@bufbuild/protobuf@1.10.1': {}
+
+  '@capacitor/android@7.6.6(@capacitor/core@7.6.6)':
+    dependencies:
+      '@capacitor/core': 7.6.6
 
   '@capacitor/cli@7.6.6':
     dependencies:

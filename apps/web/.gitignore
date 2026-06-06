@@ -48,3 +48,12 @@ next-env.d.ts
 **/ios/DerivedData/
 **/ios/**/*.xcuserstate
 **/ios/**/xcuserdata/
+
+# capacitor (android/ is committed; ignore Gradle build output and IDE state)
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+**/android/local.properties
+**/android/.idea/
+**/android/capacitor-cordova-android-plugins/
+**/android/app/src/main/assets/public/
