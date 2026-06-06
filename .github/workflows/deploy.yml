@@ -49,12 +49,29 @@ jobs:
           target: "/tmp/aumchanting-deploy"
           strip_components: 1
 
-      - name: Deploy on Lightsail
+      # Lightsail → GHCR pulls often fail (connection reset). Runner has reliable GHCR
+      # access; stream the image over SSH instead of docker compose pull on the server.
+      - name: Stream image to Lightsail
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/lightsail
+          chmod 600 ~/.ssh/lightsail
+          docker pull "${IMAGE}:${GITHUB_SHA}"
+          docker save "${IMAGE}:${GITHUB_SHA}" | gzip -1 | \
+            ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/lightsail \
+              "${LIGHTSAIL_USER}@${LIGHTSAIL_HOST}" \
+              "gunzip | docker load"
+
+      - name: Start app on Lightsail
         uses: appleboy/ssh-action@v1.2.0
         env:
-          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
           LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
           LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
           LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
@@ -62,7 +79,7 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
-          envs: GHCR_READ_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY,LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET
+          envs: GITHUB_REPOSITORY,GITHUB_SHA,LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET
           script: |
             set -euo pipefail
             if ! command -v docker >/dev/null 2>&1; then
@@ -73,6 +90,7 @@ jobs:
             sudo chown -R "$USER:$USER" /opt/aumchanting
             cp /tmp/aumchanting-deploy/docker-compose.yml /opt/aumchanting/
             REPO_LC="$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+            IMAGE="ghcr.io/${REPO_LC}"
             umask 077
             {
               printf '%s=%s\n' PORT 8787
@@ -82,20 +100,7 @@ jobs:
             } > /opt/aumchanting/.env
             chmod 600 /opt/aumchanting/.env
             cd /opt/aumchanting
-            echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
             export GITHUB_REPOSITORY="${REPO_LC}"
-            pulled=0
-            for attempt in 1 2 3 4 5; do
-              if docker compose pull; then
-                pulled=1
-                break
-              fi
-              echo "docker compose pull failed (attempt ${attempt}/5), retrying in 20s..."
-              sleep 20
-            done
-            if [ "$pulled" -ne 1 ]; then
-              echo "docker compose pull failed after 5 attempts"
-              exit 1
-            fi
+            docker tag "${IMAGE}:${GITHUB_SHA}" "${IMAGE}:latest"
             docker compose up -d --remove-orphans
             docker image prune -f
