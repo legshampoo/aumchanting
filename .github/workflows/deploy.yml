@@ -84,6 +84,18 @@ jobs:
             cd /opt/aumchanting
             echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
             export GITHUB_REPOSITORY="${REPO_LC}"
-            docker compose pull
+            pulled=0
+            for attempt in 1 2 3 4 5; do
+              if docker compose pull; then
+                pulled=1
+                break
+              fi
+              echo "docker compose pull failed (attempt ${attempt}/5), retrying in 20s..."
+              sleep 20
+            done
+            if [ "$pulled" -ne 1 ]; then
+              echo "docker compose pull failed after 5 attempts"
+              exit 1
+            fi
             docker compose up -d --remove-orphans
             docker image prune -f
