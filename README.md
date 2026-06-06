@@ -21,4 +21,6 @@ pnpm --filter web dev
 
 See [DEPLOY.md](./DEPLOY.md). Secrets live in **GitHub Actions**; each push to `main` deploys to Lightsail.
 
-edit for push again and again 
+## iOS / Android (Capacitor hybrid)
+
+Native shell + WebView loads the deployed site. UI ships with your normal web deploy; rebuild the store app only for native changes. See [MOBILE.md](./MOBILE.md).

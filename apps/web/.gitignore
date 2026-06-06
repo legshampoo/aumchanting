@@ -41,3 +41,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# capacitor (ios/ is committed; ignore Xcode user state)
+**/ios/App/Pods/
+**/ios/App/App/public/
+**/ios/DerivedData/
+**/ios/**/*.xcuserstate
+**/ios/**/xcuserdata/

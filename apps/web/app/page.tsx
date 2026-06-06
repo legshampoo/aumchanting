@@ -11,6 +11,18 @@ import {
   Track,
 } from "livekit-client";
 
+function isIOSDevice() {
+  return (
+    typeof navigator !== "undefined" &&
+    /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
+}
+
+/** Map RMS to 0..1 for the level meter (log scale — quiet input still visible). */
+function rmsToMeterLevel(rms: number) {
+  return Math.min(1, Math.log10(1 + rms * 800) / Math.log10(1 + 800));
+}
+
 type TokenResponse = {
   url: string;
   token: string;
@@ -99,13 +111,18 @@ export default function Home() {
     setMicLevel(0);
   }
 
-  function startMicMeter(track: LocalAudioTrack) {
+  async function startMicMeter(track: LocalAudioTrack) {
     stopMicMeter();
 
     const mediaStreamTrack = track.mediaStreamTrack;
     const ctx = new AudioContext();
+    // iOS WebView keeps AudioContext suspended until resumed — meter reads ~0 otherwise.
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
+    analyser.fftSize = 1024;
 
     const src = ctx.createMediaStreamSource(new MediaStream([mediaStreamTrack]));
     src.connect(analyser);
@@ -113,21 +130,20 @@ export default function Home() {
     micAudioCtxRef.current = ctx;
     micAnalyserRef.current = analyser;
 
-    const data = new Uint8Array(analyser.fftSize);
+    const data = new Float32Array(analyser.fftSize);
 
     const tick = () => {
       const a = micAnalyserRef.current;
       if (!a) return;
 
-      a.getByteTimeDomainData(data);
+      a.getFloatTimeDomainData(data);
       let sumSq = 0;
       for (let i = 0; i < data.length; i++) {
-        const v = (data[i]! - 128) / 128;
-        sumSq += v * v;
+        sumSq += data[i]! * data[i]!;
       }
-      const rms = Math.sqrt(sumSq / data.length); // 0..~1
-      // Smooth a little to avoid jitter.
-      setMicLevel((prev) => prev * 0.85 + rms * 0.15);
+      const rms = Math.sqrt(sumSq / data.length);
+      const visual = rmsToMeterLevel(rms);
+      setMicLevel((prev) => prev * 0.75 + visual * 0.25);
       micLevelRafRef.current = requestAnimationFrame(tick);
     };
 
@@ -194,18 +210,16 @@ export default function Home() {
             "Microphone needs HTTPS (or localhost). On HTTP use “Listen only”, or add TLS to your site.",
           );
         }
-        // Mic only (avoid camera permission prompt).
-        // Disable voice-style processing that can gate steady tones (aum).
+        // iOS mics are very quiet without AGC; desktop keeps AGC off for steady aum tones.
         const micTrack = await createLocalAudioTrack({
-          autoGainControl: false,
+          autoGainControl: isIOSDevice(),
           noiseSuppression: false,
-          // Echo cancellation can gate steady tones; prefer headphones for now.
           echoCancellation: false,
         });
         localMicTrackRef.current = micTrack;
         await room.localParticipant.publishTrack(micTrack);
         setMicEnabled(true);
-        startMicMeter(micTrack);
+        void startMicMeter(micTrack);
       } else {
         setMicEnabled(false);
         stopMicMeter();
@@ -302,7 +316,7 @@ export default function Home() {
                 <div
                   className="h-full bg-zinc-950 dark:bg-zinc-50"
                   style={{
-                    width: `${Math.min(100, Math.round(micLevel * 140))}%`,
+                    width: `${Math.min(100, Math.round(micLevel * 100))}%`,
                   }}
                 />
               </div>

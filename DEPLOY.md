@@ -129,3 +129,153 @@ LiveKit media uses `LIVEKIT_URL` from your API token (usually `wss://….livekit
 - **404 on deploy curl**: private repos cannot use `raw.githubusercontent.com` without auth; deploy copies `docker-compose.yml` over SCP from the Actions checkout.
 - **Too many redirects**: set SSL mode to **Flexible** (not Full) until origin has HTTPS.
 - **Mic still blocked**: confirm the address bar shows `https://`, not `http://`.
+## Instance freezes (SSH “try again later”, site dead until reboot)
+
+Lightsail’s browser SSH shows that message when the VM is **overloaded or out of resources**, not only when AWS is down. If **reboot always fixes it**, the usual cause on a small instance is:
+
+| Cause | Why reboot “fixes” it |
+|--------|------------------------|
+| **Out of memory (OOM)** | One container runs **nginx + Next.js + Express**. Next alone can use hundreds of MB; on a **512 MB / $5** plan the kernel kills processes or the box stops accepting SSH until reboot. |
+| **Disk full** | Old Docker images/layers after many deploys → pulls fail, Docker misbehaves, logs can’t write. |
+| **CPU pegged** | Less common; crash loop or traffic spike. |
+
+This is **not** fixed by Cloudflare or Capacitor. Fix the VM size and steady-state resources.
+
+### After the next reboot — confirm (SSH in, copy/paste)
+
+```bash
+free -h
+df -h /
+sudo dmesg -T | grep -iE 'oom|out of memory|killed process' | tail -20
+sudo docker ps -a
+sudo docker compose -f /opt/aumchanting/docker-compose.yml logs --tail=30
+```
+
+If `dmesg` shows **Out of memory** or **Killed process** → treat as OOM (steps below).
+
+### Fixes (in order)
+
+**1. Upsize Lightsail (most reliable)**  
+Console → instance → **Change plan** → at least **$10 / 2 GB RAM** (1 GB is tight for Node + Next + Docker). Reattach the **same static IP** if prompted.
+
+**2. Add swap (helps on 1 GB; not a substitute for RAM)**  
+Run once on the server:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h
+```
+
+**3. Prune Docker disk**  
+After SSH works:
+
+```bash
+docker system df
+docker image prune -af
+docker system prune -f
+df -h /
+```
+
+**4. Keep GitHub deploy green**  
+A failed deploy can leave no healthy container; that looks like “no response” on `/health` but usually **SSH still works**. If SSH is dead too, suspect OOM/disk first.
+
+**5. Optional: Lightsail alarm**  
+Metrics → **CPU > 80%** or **Status check failed** → email you before the next hard freeze.
+
+### Prevention checklist
+
+- Static IP + **HTTP 80** open; `LIGHTSAIL_HOST` matches that IP.
+- Don’t run other heavy services on the same micro instance.
+- After upsizing + swap, `curl http://YOUR_IP/health` should return `{"ok":true}` without hanging.
+
+---
+
+## Site unreachable (`curl` fails / app times out)
+
+Run these on your Mac. Replace `LIGHTSAIL_IP` with the value from GitHub secret `LIGHTSAIL_HOST` (Lightsail console → instance → public IP).
+
+### A. DNS and HTTPS (domain layer)
+
+```bash
+dig +short aumchanting.com A
+dig +short www.aumchanting.com A
+```
+
+Proxied Cloudflare often returns Cloudflare anycast IPs (not your Lightsail IP). That is OK if origin is healthy.
+
+```bash
+curl -sS -o /dev/null -w "https domain: HTTP %{http_code} in %{time_total}s\n" --max-time 20 https://aumchanting.com/
+curl -sS -o /dev/null -w "http domain:  HTTP %{http_code} in %{time_total}s\n" --max-time 20 http://aumchanting.com/
+```
+
+### B. Origin (bypass Cloudflare)
+
+```bash
+curl -sS -o /dev/null -w "origin /health: HTTP %{http_code} in %{time_total}s\n" --max-time 10 http://LIGHTSAIL_IP/health
+curl -sS -o /dev/null -w "origin /:        HTTP %{http_code} in %{time_total}s\n" --max-time 10 http://LIGHTSAIL_IP/
+```
+
+| Result | Likely fix |
+|--------|------------|
+| B works, A fails | **Cloudflare**: A record → correct Lightsail IP (static IP); SSL mode **Flexible**; not “Full” without origin HTTPS |
+| B fails | **Lightsail/server**: firewall HTTP 80; container down; redeploy (sections C–D) |
+| Both timeout | Wrong IP, instance stopped, or networking |
+
+### C. GitHub Actions deploy
+
+Repo → **Actions** → **Deploy** → latest run must be green.
+
+Or with GitHub CLI:
+
+```bash
+gh run list --workflow=Deploy --limit 5
+gh run view RUN_ID --log-failed
+```
+
+Redeploy after fixing secrets:
+
+```bash
+git commit --allow-empty -m "chore: redeploy" && git push origin main
+```
+
+Required repository secrets: `LIGHTSAIL_HOST`, `LIGHTSAIL_USER`, `LIGHTSAIL_SSH_PRIVATE_KEY`, `GHCR_READ_TOKEN`, `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
+
+### D. On the server (SSH)
+
+Use Lightsail browser SSH or:
+
+```bash
+ssh -i /path/to/LightsailDefaultKey.pem ubuntu@LIGHTSAIL_IP
+```
+
+```bash
+sudo docker ps -a
+sudo docker compose -f /opt/aumchanting/docker-compose.yml ps
+sudo docker compose -f /opt/aumchanting/docker-compose.yml logs --tail=80
+curl -sS http://127.0.0.1/health
+```
+
+If the container is missing or exited:
+
+```bash
+cd /opt/aumchanting
+cat .env   # should list LIVEKIT_* (values hidden); no empty keys
+export GITHUB_REPOSITORY=YOUR_GITHUB_USER/aumchanting   # lowercase user/repo
+echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
+docker compose pull
+docker compose up -d --remove-orphans
+```
+
+(`GHCR_READ_TOKEN` is a GitHub PAT with `read:packages`; paste only on the server, do not commit.)
+
+### E. Lightsail checklist (console)
+
+1. Instance **Running**
+2. **Static IP** attached; same IP in Cloudflare A record and `LIGHTSAIL_HOST`
+3. **Networking** → IPv4: **SSH 22** and **HTTP 80** from `0.0.0.0/0`
+4. After IP change: update Cloudflare DNS + GitHub `LIGHTSAIL_HOST`, then push `main`
+
