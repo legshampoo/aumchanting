@@ -31,7 +31,15 @@ export default function PrivacyPage() {
               Aumchanting (&quot;we&quot;, &quot;us&quot;) provides a global live
               audio room where people can listen or join with a microphone to
               chant together. This policy describes how we handle information
-              when you use our website at aumchanting.com and our iOS app.
+              when you use our website at aumchanting.com and our iOS and Android
+              apps. See also our{" "}
+              <Link
+                href="/terms"
+                className="underline hover:text-zinc-950 dark:hover:text-zinc-50"
+              >
+                Terms of Service
+              </Link>
+              .
             </p>
           </section>
 
@@ -134,6 +142,49 @@ export default function PrivacyPage() {
             <p className="mt-2">
               We may update this policy from time to time. The &quot;Last
               updated&quot; date at the top will reflect the latest version.
+            </p>
+          </section>
+
+          <section id="delete-data">
+            <h2 className="text-lg font-medium text-zinc-950 dark:text-zinc-50">
+              Request data deletion (Aumchanting)
+            </h2>
+            <p className="mt-2">
+              You can ask us to delete data associated with your use of
+              Aumchanting. To request deletion:
+            </p>
+            <ol className="mt-2 list-decimal space-y-2 pl-5">
+              <li>
+                Email{" "}
+                <a
+                  href="mailto:degen.moonboi@gmail.com?subject=Aumchanting%20data%20deletion%20request"
+                  className="underline hover:text-zinc-950 dark:hover:text-zinc-50"
+                >
+                  degen.moonboi@gmail.com
+                </a>{" "}
+                with the subject line &quot;Aumchanting data deletion
+                request&quot;.
+              </li>
+              <li>
+                Include the approximate date and time you used the app (and your
+                guest session ID if you have it) so we can locate related
+                records.
+              </li>
+              <li>We will confirm when your request has been processed.</li>
+            </ol>
+            <p className="mt-2">
+              <strong>What we delete:</strong> server logs and session
+              identifiers we can reasonably associate with your request.
+            </p>
+            <p className="mt-2">
+              <strong>What we do not store:</strong> live microphone audio is
+              transmitted in real time and is not intentionally saved as
+              recordings.
+            </p>
+            <p className="mt-2">
+              <strong>Retention:</strong> operational and security logs may be
+              kept for a limited period (typically up to 90 days) before
+              automatic deletion. Deletion requests are handled within 30 days.
             </p>
           </section>
 
