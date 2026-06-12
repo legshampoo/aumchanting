@@ -4,17 +4,17 @@ Push to `main` builds a Docker image, writes production `.env` from GitHub secre
 
 ## Architecture
 
-- One container: nginx on port 80 → Next.js (3000) + Express API (8787)
+- One container: nginx on port 80 → Next.js (3000) + Express API (8787, includes LiveKit drone bot)
+- The API process joins room `globalAum` as `drone-bot` and publishes ambient audio when at least one human is in the room (or shortly after `/token`). Tune in `services/api/src/drone-config.ts`.
 - Production secrets: GitHub **repository secrets** → `/opt/aumchanting/.env` on each deploy
-- Local dev: `services/api/.env` + `apps/web/.env.local` (never committed)
+- Local dev: `.env` at repo root (never committed)
 
 ## Local development
 
 ```bash
 pnpm install
-cp services/api/.env.example services/api/.env
-cp apps/web/.env.local.example apps/web/.env.local
-# Fill LIVEKIT_* in services/api/.env
+cp .env.example .env
+# Fill LIVEKIT_* in .env (repo root)
 pnpm --filter api dev    # terminal 1
 pnpm --filter web dev    # terminal 2
 ```

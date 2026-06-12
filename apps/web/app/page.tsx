@@ -31,6 +31,10 @@ type TokenResponse = {
   name: string;
 };
 
+/** Match services/api/src/drone-config.ts → identity */
+const DRONE_IDENTITY = "drone-bot";
+const DRONE_PLAYBACK_GAIN = 2.5;
+
 export default function Home() {
   const apiBase = useMemo(() => {
     const configured = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -49,6 +53,7 @@ export default function Home() {
   const [activeSpeakerCount, setActiveSpeakerCount] = useState<number>(0);
   const [micAvailable, setMicAvailable] = useState(false);
   const audioElsByTrackSid = useRef(new Map<string, HTMLMediaElement>());
+  const audioCtxByTrackSid = useRef(new Map<string, AudioContext>());
   const audioBinRef = useRef<HTMLDivElement | null>(null);
   const localMicTrackRef = useRef<LocalAudioTrack | null>(null);
   const micLevelRafRef = useRef<number | null>(null);
@@ -150,7 +155,7 @@ export default function Home() {
     micLevelRafRef.current = requestAnimationFrame(tick);
   }
 
-  function attachRemoteAudio(track: Track) {
+  function attachRemoteAudio(track: Track, participant?: RemoteParticipant) {
     if (track.kind !== Track.Kind.Audio) return;
     if (!audioBinRef.current) return;
 
@@ -159,15 +164,25 @@ export default function Home() {
 
     const el = track.attach();
     el.autoplay = true;
-    // iOS/Safari sometimes needs explicit unmute.
-    // Note: audio playback still requires a user gesture; clicking Join satisfies that.
     const mediaEl = el as HTMLMediaElement;
     mediaEl.muted = false;
-    // playsinline is most relevant for video, but setting the attribute is harmless.
+    mediaEl.volume = 1;
     mediaEl.setAttribute("playsinline", "true");
 
     audioBinRef.current.appendChild(el);
     audioElsByTrackSid.current.set(key, el);
+
+    const isDrone = participant?.identity === DRONE_IDENTITY;
+    if (isDrone && typeof AudioContext !== "undefined") {
+      const ctx = new AudioContext();
+      const source = ctx.createMediaElementSource(mediaEl);
+      const gain = ctx.createGain();
+      gain.gain.value = DRONE_PLAYBACK_GAIN;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      void ctx.resume();
+      audioCtxByTrackSid.current.set(key, ctx);
+    }
 
     void mediaEl.play().catch((err) => {
       console.warn("audio play() failed", err);
@@ -178,12 +193,15 @@ export default function Home() {
     if (track.kind !== Track.Kind.Audio) return;
     const key = track.sid ?? track.mediaStreamTrack.id;
     const el = audioElsByTrackSid.current.get(key);
+    const ctx = audioCtxByTrackSid.current.get(key);
     if (!el) return;
     try {
       track.detach(el);
     } finally {
       el.remove();
       audioElsByTrackSid.current.delete(key);
+      audioCtxByTrackSid.current.delete(key);
+      void ctx?.close();
     }
   }
 
@@ -228,7 +246,7 @@ export default function Home() {
       room.remoteParticipants.forEach((p: RemoteParticipant) => {
         p.getTrackPublications().forEach((pub) => {
           if (pub.kind === Track.Kind.Audio && pub.track) {
-            attachRemoteAudio(pub.track);
+            attachRemoteAudio(pub.track, p);
           }
         });
       });
@@ -237,7 +255,7 @@ export default function Home() {
         .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
           // Don't play your own mic back (sidetone) — it feels like echo.
           if (participant.identity === room.localParticipant.identity) return;
-          attachRemoteAudio(track);
+          attachRemoteAudio(track, participant);
         })
         .on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
           if (participant.identity === room.localParticipant.identity) return;
@@ -258,6 +276,8 @@ export default function Home() {
       // Clean up any remote audio elements we created.
       audioElsByTrackSid.current.forEach((el) => el.remove());
       audioElsByTrackSid.current.clear();
+      audioCtxByTrackSid.current.forEach((ctx) => void ctx.close());
+      audioCtxByTrackSid.current.clear();
 
       if (localMicTrackRef.current) {
         try {

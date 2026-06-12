@@ -1,2 +1,2 @@
-import 'dotenv/config';
+import './load-env.js';
 //# sourceMappingURL=index.d.ts.map

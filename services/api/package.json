@@ -16,7 +16,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "livekit-server-sdk": "^2.15.4"
+    "livekit-server-sdk": "^2.15.4",
+    "@livekit/rtc-node": "^0.13.26"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

@@ -1,7 +1,9 @@
-import 'dotenv/config';
+import './load-env.js';
 import cors from 'cors';
 import express from 'express';
 import { AccessToken } from 'livekit-server-sdk';
+import { droneConfig } from './drone-config.js';
+import { notifyHumanActivity, startDrone } from './drone.js';
 
 type TokenRequestBody = {
   room?: string;
@@ -30,6 +32,12 @@ app.post('/token', async (req, res) => {
 
   const room = body.room || 'globalAum';
   const identity = body.identity || `guest_${Math.random().toString(16).slice(2)}`;
+  if (
+    identity === droneConfig.identity ||
+    identity.startsWith(`${droneConfig.reservedIdPrefix}-`)
+  ) {
+    return res.status(403).json({ error: 'Reserved identity' });
+  }
   const name = body.name || 'Guest';
 
   const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
@@ -39,6 +47,8 @@ app.post('/token', async (req, res) => {
   token.addGrant({ roomJoin: true, room });
 
   const jwt = await token.toJwt();
+
+  notifyHumanActivity(room);
 
   return res.json({
     url: LIVEKIT_URL,
@@ -52,5 +62,8 @@ app.post('/token', async (req, res) => {
 const port = Number(process.env.PORT || 8787);
 app.listen(port, () => {
   console.log(`api listening on http://localhost:${port}`);
+  if (droneConfig.enabled) {
+    startDrone();
+  }
 });
 

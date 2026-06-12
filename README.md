@@ -6,16 +6,16 @@ LiveKit + Next.js monorepo.
 
 ```bash
 pnpm install
-cp services/api/.env.example services/api/.env
-cp apps/web/.env.local.example apps/web/.env.local
+cp .env.example .env
 ```
 
-Fill `LIVEKIT_*` in `services/api/.env`, then:
+Fill `LIVEKIT_*` in `.env` at the repo root, then:
 
 ```bash
-pnpm --filter api dev
-pnpm --filter web dev
+pnpm dev
 ```
+
+Opens the web app at http://localhost:3000 (API on :8787).
 
 ## Production deploy
 

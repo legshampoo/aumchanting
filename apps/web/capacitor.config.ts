@@ -1,4 +1,11 @@
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import type { CapacitorConfig } from "@capacitor/cli";
+
+dotenv.config({
+  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.env"),
+});
 
 /**
  * Hybrid shell: native iOS/Android wrapper loads the deployed web app.
