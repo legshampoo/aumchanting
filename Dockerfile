@@ -14,10 +14,16 @@ ARG NEXT_PUBLIC_API_BASE_URL=
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN pnpm --filter web build && pnpm --filter api build
 RUN pnpm --filter api deploy --prod --legacy /app/api
+RUN cd /app/api && node --input-type=module -e "import('@livekit/rtc-node').then(() => console.log('rtc-node native binding ok'))"
 
 FROM node:22-bookworm-slim AS runner
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends nginx \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    nginx \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 

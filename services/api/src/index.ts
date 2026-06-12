@@ -3,7 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import { AccessToken } from 'livekit-server-sdk';
 import { droneConfig } from './drone-config.js';
-import { notifyHumanActivity, startDrone } from './drone.js';
+import { getDroneStatus, notifyHumanActivity, startDrone } from './drone.js';
 
 type TokenRequestBody = {
   room?: string;
@@ -15,7 +15,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', (_req, res) =>
+  res.json({ ok: true, drone: getDroneStatus() }),
+);
 
 app.post('/token', async (req, res) => {
   const LIVEKIT_URL = process.env.LIVEKIT_URL;
@@ -31,6 +33,8 @@ app.post('/token', async (req, res) => {
   const body = (req.body || {}) as TokenRequestBody;
 
   const room = body.room || 'globalAum';
+  notifyHumanActivity(room);
+
   const identity = body.identity || `guest_${Math.random().toString(16).slice(2)}`;
   if (
     identity === droneConfig.identity ||
@@ -47,8 +51,6 @@ app.post('/token', async (req, res) => {
   token.addGrant({ roomJoin: true, room });
 
   const jwt = await token.toJwt();
-
-  notifyHumanActivity(room);
 
   return res.json({
     url: LIVEKIT_URL,

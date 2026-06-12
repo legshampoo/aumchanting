@@ -102,5 +102,5 @@ jobs:
             cd /opt/aumchanting
             export GITHUB_REPOSITORY="${REPO_LC}"
             docker tag "${IMAGE}:${GITHUB_SHA}" "${IMAGE}:latest"
-            docker compose up -d --remove-orphans
+            docker compose up -d --force-recreate --remove-orphans
             docker image prune -f

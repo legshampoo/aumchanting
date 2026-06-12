@@ -3,11 +3,11 @@ import cors from 'cors';
 import express from 'express';
 import { AccessToken } from 'livekit-server-sdk';
 import { droneConfig } from './drone-config.js';
-import { notifyHumanActivity, startDrone } from './drone.js';
+import { getDroneStatus, notifyHumanActivity, startDrone } from './drone.js';
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', (_req, res) => res.json({ ok: true, drone: getDroneStatus() }));
 app.post('/token', async (req, res) => {
     const LIVEKIT_URL = process.env.LIVEKIT_URL;
     const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;

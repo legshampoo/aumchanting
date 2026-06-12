@@ -87,12 +87,45 @@ function fillOmFrame(out: Int16Array, phase: number, gain: number): number {
   return phase + out.length;
 }
 
+export type DroneStatus = {
+  enabled: boolean;
+  started: boolean;
+  connected: boolean;
+  connecting: boolean;
+  lastError: string | null;
+  lastHumanActivityAt: number | null;
+};
+
+export function getDroneStatus(): DroneStatus {
+  if (startError) {
+    return {
+      enabled: droneConfig.enabled,
+      started: false,
+      connected: false,
+      connecting: false,
+      lastError: startError,
+      lastHumanActivityAt: null,
+    };
+  }
+  return (
+    controller?.getStatus() ?? {
+      enabled: droneConfig.enabled,
+      started: false,
+      connected: false,
+      connecting: false,
+      lastError: null,
+      lastHumanActivityAt: null,
+    }
+  );
+}
+
 export function notifyHumanActivity(room: string = ROOM): void {
   if (room !== ROOM) return;
   controller?.onHumanActivity();
 }
 
 let controller: DroneController | null = null;
+let startError: string | null = null;
 
 class DroneController {
   private readonly room = new Room();
@@ -111,6 +144,9 @@ class DroneController {
   private lastHumanActivityAt = 0;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private syncing = false;
+  private pendingSync = false;
+  private started = false;
+  private lastError: string | null = null;
 
   constructor() {
     this.publishOptions.source = TrackSource.SOURCE_UNKNOWN;
@@ -124,11 +160,24 @@ class DroneController {
   }
 
   start(): void {
+    this.started = true;
     this.pollTimer = setInterval(() => {
       void this.sync();
     }, POLL_MS);
     void this.sync();
     console.log(`[drone] idle — joins "${ROOM}" when humans are present`);
+  }
+
+  getStatus(): DroneStatus {
+    return {
+      enabled: droneConfig.enabled,
+      started: this.started,
+      connected: this.connected,
+      connecting: this.connecting,
+      lastError: this.lastError,
+      lastHumanActivityAt:
+        this.lastHumanActivityAt > 0 ? this.lastHumanActivityAt : null,
+    };
   }
 
   onHumanActivity(): void {
@@ -140,8 +189,23 @@ class DroneController {
     try {
       const participants = await roomService().listParticipants(ROOM);
       return participants.filter((p) => p.identity !== DRONE_IDENTITY).length;
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes('requested room does not exist')) {
+        console.warn('[drone] listParticipants:', message);
+      }
       return 0;
+    }
+  }
+
+  private async clearStaleParticipant(): Promise<void> {
+    try {
+      await roomService().removeParticipant(ROOM, DRONE_IDENTITY);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes('requested room does not exist')) {
+        console.warn('[drone] removeParticipant:', message);
+      }
     }
   }
 
@@ -152,7 +216,10 @@ class DroneController {
   }
 
   async sync(): Promise<void> {
-    if (this.syncing) return;
+    if (this.syncing) {
+      this.pendingSync = true;
+      return;
+    }
     this.syncing = true;
     try {
       const wantConnected = await this.shouldBeConnected();
@@ -165,6 +232,10 @@ class DroneController {
       }
     } finally {
       this.syncing = false;
+      if (this.pendingSync) {
+        this.pendingSync = false;
+        void this.sync();
+      }
     }
   }
 
@@ -247,10 +318,12 @@ class DroneController {
     try {
       await this.disposePublisher();
       this.createPublisher();
+      await this.clearStaleParticipant();
 
       const { url, token } = await mintToken();
       await this.room.connect(url, token);
       this.connected = true;
+      this.lastError = null;
 
       const local = this.room.localParticipant;
       const track = this.track;
@@ -269,6 +342,7 @@ class DroneController {
 
       console.log(`[drone] publishing ambient audio to "${ROOM}"`);
     } catch (err) {
+      this.lastError = err instanceof Error ? err.message : String(err);
       console.error('[drone] connect failed:', err);
       this.connected = false;
       await this.stopAudio('connect failed');
@@ -305,6 +379,11 @@ class DroneController {
 }
 
 export function startDrone(): void {
-  controller = new DroneController();
-  controller.start();
+  try {
+    controller = new DroneController();
+    controller.start();
+  } catch (err) {
+    startError = err instanceof Error ? err.message : String(err);
+    console.error('[drone] failed to start:', err);
+  }
 }
