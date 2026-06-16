@@ -6,6 +6,9 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  logging: {
+    browserToTerminal: false,
+  },
 };
 
 export default nextConfig;

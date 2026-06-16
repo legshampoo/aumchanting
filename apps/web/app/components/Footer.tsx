@@ -6,6 +6,13 @@ export function Footer() {
       <p>
         © {new Date().getFullYear()} Aumchanting ·{" "}
         <Link
+          href="/contact"
+          className="underline hover:text-zinc-800 dark:hover:text-zinc-300"
+        >
+          Contact
+        </Link>{" "}
+        ·{" "}
+        <Link
           href="/privacy"
           className="underline hover:text-zinc-800 dark:hover:text-zinc-300"
         >

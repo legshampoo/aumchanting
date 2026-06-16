@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Footer } from "./components/Footer";
+import { Header } from "./components/Header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Aumchanting",
-  description: "Global live aum chanting room",
+  title: "Om Chanting forever",
+  description: "Global live OM chanting room — join 24/7 or attend scheduled circles worldwide.",
 };
 
 export default function RootLayout({
@@ -29,6 +30,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Header />
         {children}
         <Footer />
       </body>
