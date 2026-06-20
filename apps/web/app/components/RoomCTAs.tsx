@@ -1,3 +1,6 @@
+const BETA_TEST_URL =
+  "https://groups.google.com/g/aum-chanting-app-testers";
+
 type RoomCTAsProps = {
   status: "idle" | "joining" | "joined" | "leaving" | "error";
   isJoined: boolean;
@@ -21,6 +24,15 @@ export function RoomCTAs({
     <div
       className={`flex flex-col items-center gap-3 sm:flex-row sm:justify-center ${className}`}
     >
+      <a
+        href={BETA_TEST_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex h-10 w-48 items-center justify-center rounded-full bg-zinc-950 text-sm text-white dark:bg-zinc-50 dark:text-zinc-950"
+      >
+        Join the Beta Test
+      </a>
+      <div className="hidden flex-col items-center gap-3 sm:flex-row sm:justify-center">
       <button
         type="button"
         className="h-10 w-40 cursor-pointer rounded-full bg-zinc-950 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950"
@@ -51,6 +63,7 @@ export function RoomCTAs({
           Leave
         </button>
       ) : null}
+      </div>
     </div>
   );
 }
