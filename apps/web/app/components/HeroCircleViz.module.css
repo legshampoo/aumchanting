@@ -1,0 +1,72 @@
+.ringCw {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+  animation: hero-rotate-cw 140s linear infinite;
+}
+
+.ringCcw {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+  animation: hero-rotate-ccw 100s linear infinite;
+}
+
+.dotPulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-dot-pulse 4.2s ease-in-out infinite;
+}
+
+.dotPulseStrong {
+  animation-name: hero-dot-pulse-strong;
+  animation-duration: 2.8s;
+}
+
+@keyframes hero-rotate-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes hero-rotate-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes hero-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(2);
+    opacity: 0.7;
+  }
+}
+
+@keyframes hero-dot-pulse-strong {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(2);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ringCw,
+  .ringCcw,
+  .dotPulse {
+    animation: none;
+  }
+}

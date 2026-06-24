@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
 import { landingConfig } from "../landing-config";
 import { BetaTestButton } from "./BetaTestButton";
 import {
@@ -10,25 +9,13 @@ import {
   FeatureIconHeart,
   FeatureIconJoin,
 } from "./FeatureIcons";
+import { HeroCircleViz } from "./HeroCircleViz";
 import { RoomCTAs } from "./RoomCTAs";
 import { LiveWaveform } from "./LiveWaveform";
 import { RoomDashboard } from "./RoomDashboard";
 import { useGlobalAumRoom } from "./useGlobalAumRoom";
 import { useRoomStats } from "./useRoomStats";
 import { useWaveformAnalyser } from "./useWaveformAnalyser";
-
-const HeroCircleViz = dynamic(
-  () => import("./HeroCircleViz").then((mod) => mod.HeroCircleViz),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="relative mx-auto aspect-square w-full max-w-lg lg:max-w-none"
-        aria-hidden
-      />
-    ),
-  },
-);
 
 const COUNTRIES_COUNT = 71;
 
