@@ -178,7 +178,7 @@ export function LandingPage() {
               { label: "Countries", value: String(COUNTRIES_COUNT) },
               { label: "Always open", value: "24/7" },
             ].map((stat) => (
-              <div key={stat.label} className="text-center sm:text-left">
+              <div key={stat.label} className="text-center">
                 <p
                   className={`font-display text-3xl font-medium ${
                     stat.highlight ? "text-gold" : "text-foreground"
