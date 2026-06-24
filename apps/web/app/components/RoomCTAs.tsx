@@ -1,5 +1,7 @@
-const BETA_TEST_URL =
-  "https://groups.google.com/g/aum-chanting-app-testers";
+"use client";
+
+import { useState } from "react";
+import { BetaSignupModal } from "./BetaSignupModal";
 
 type RoomCTAsProps = {
   status: "idle" | "joining" | "joined" | "leaving" | "error";
@@ -11,6 +13,9 @@ type RoomCTAsProps = {
   className?: string;
 };
 
+const secondaryButtonClassName =
+  "h-10 w-48 cursor-pointer rounded-full border border-zinc-200 text-sm text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-50";
+
 export function RoomCTAs({
   status,
   isJoined,
@@ -20,50 +25,55 @@ export function RoomCTAs({
   onLeave,
   className = "mt-10",
 }: RoomCTAsProps) {
+  const [betaModalOpen, setBetaModalOpen] = useState(false);
+
   return (
-    <div
-      className={`flex flex-col items-center gap-3 sm:flex-row sm:justify-center ${className}`}
-    >
-      <a
-        href={BETA_TEST_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex h-10 w-48 items-center justify-center rounded-full bg-zinc-950 text-sm text-white dark:bg-zinc-50 dark:text-zinc-950"
-      >
-        Join the Beta Test
-      </a>
-      <div className="hidden flex-col items-center gap-3 sm:flex-row sm:justify-center">
-      <button
-        type="button"
-        className="h-10 w-40 cursor-pointer rounded-full bg-zinc-950 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950"
-        onClick={onJoinWithMic}
-        disabled={status === "joining" || isJoined || !micAvailable}
-        title={
-          micAvailable
-            ? undefined
-            : "Microphone requires HTTPS (not available on plain HTTP)"
-        }
-      >
-        Join + Mic
-      </button>
-      <button
-        type="button"
-        className="h-10 w-40 cursor-pointer rounded-full border border-zinc-200 text-sm text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-50"
-        onClick={onListenOnly}
-        disabled={status === "joining" || isJoined}
-      >
-        Listen only
-      </button>
-      {isJoined ? (
+    <>
+      <div className={`flex flex-col items-center gap-3 ${className}`}>
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            className="h-10 w-40 cursor-pointer rounded-full bg-zinc-950 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950"
+            onClick={onJoinWithMic}
+            disabled={status === "joining" || isJoined || !micAvailable}
+            title={
+              micAvailable
+                ? undefined
+                : "Microphone requires HTTPS (not available on plain HTTP)"
+            }
+          >
+            Join + Mic
+          </button>
+          <button
+            type="button"
+            className={secondaryButtonClassName}
+            onClick={onListenOnly}
+            disabled={status === "joining" || isJoined}
+          >
+            Listen only
+          </button>
+          {isJoined ? (
+            <button
+              type="button"
+              className="h-10 w-40 cursor-pointer rounded-full border border-red-200 text-sm text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30"
+              onClick={onLeave}
+            >
+              Leave
+            </button>
+          ) : null}
+        </div>
         <button
           type="button"
-          className="h-10 w-40 cursor-pointer rounded-full border border-red-200 text-sm text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30"
-          onClick={onLeave}
+          className={`${secondaryButtonClassName} w-56`}
+          onClick={() => setBetaModalOpen(true)}
         >
-          Leave
+          Join the Android Beta Test
         </button>
-      ) : null}
       </div>
-    </div>
+      <BetaSignupModal
+        open={betaModalOpen}
+        onClose={() => setBetaModalOpen(false)}
+      />
+    </>
   );
 }
