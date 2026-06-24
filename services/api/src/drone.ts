@@ -120,7 +120,7 @@ export function getDroneStatus(): DroneStatus {
 }
 
 export function notifyHumanActivity(room: string = ROOM): void {
-  if (room !== ROOM) return;
+  if (!droneConfig.enabled || room !== ROOM) return;
   controller?.onHumanActivity();
 }
 
@@ -379,6 +379,7 @@ class DroneController {
 }
 
 export function startDrone(): void {
+  if (!droneConfig.enabled) return;
   try {
     controller = new DroneController();
     controller.start();

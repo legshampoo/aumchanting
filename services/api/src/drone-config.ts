@@ -1,6 +1,7 @@
 /** Ambient drone bot settings — edit here, not in .env */
 export const droneConfig = {
-  enabled: true,
+  /** When false, the drone never starts or joins the room */
+  enabled: false,
 
   room: 'globalAum',
   identity: 'drone-bot',
@@ -36,3 +37,11 @@ export const droneConfig = {
   joinGraceMs: 90_000,
   reconnectMs: 5_000,
 } as const;
+
+export function isBotIdentity(identity: string | undefined): boolean {
+  if (!identity) return false;
+  return (
+    identity === droneConfig.identity ||
+    identity.startsWith(`${droneConfig.reservedIdPrefix}-`)
+  );
+}

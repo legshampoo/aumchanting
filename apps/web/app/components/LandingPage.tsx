@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { landingConfig } from "../landing-config";
 import { BetaTestButton } from "./BetaTestButton";
 import {
@@ -9,9 +8,13 @@ import {
   FeatureIconHeart,
   FeatureIconJoin,
 } from "./FeatureIcons";
+import { HeroCircleViz } from "./HeroCircleViz";
 import { RoomCTAs } from "./RoomCTAs";
+import { LiveWaveform } from "./LiveWaveform";
+import { RoomDashboard } from "./RoomDashboard";
 import { useGlobalAumRoom } from "./useGlobalAumRoom";
 import { useRoomStats } from "./useRoomStats";
+import { useWaveformAnalyser } from "./useWaveformAnalyser";
 
 const COUNTRIES_COUNT = 71;
 
@@ -65,31 +68,6 @@ const howItWorks = [
   },
 ];
 
-function GraphicImage({
-  pngSrc,
-  svgSrc,
-  alt,
-  className,
-}: {
-  pngSrc: string;
-  svgSrc: string;
-  alt: string;
-  className?: string;
-}) {
-  const [src, setSrc] = useState(pngSrc);
-
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={() => {
-        if (src !== svgSrc) setSrc(svgSrc);
-      }}
-    />
-  );
-}
-
 function formatCount(value: number) {
   return value.toLocaleString("en-US");
 }
@@ -105,14 +83,16 @@ export function LandingPage() {
     micLevel,
     activeSpeakerCount,
     audioBinRef,
+    localMicTrack,
     join,
     leave,
   } = useGlobalAumRoom();
 
   const roomStats = useRoomStats();
 
-  const listeners = isJoined ? participants : roomStats.listeners;
-  const chanters = isJoined
+  /** Prefer live room count when joined; server poll when not. */
+  const circleCount = isJoined ? participants : roomStats.listeners;
+  const activeChanters = isJoined
     ? activeSpeakerCount + (micEnabled ? 1 : 0)
     : roomStats.chanters;
 
@@ -124,6 +104,12 @@ export function LandingPage() {
     onListenOnly: () => join({ withMic: false }),
     onLeave: leave,
   };
+
+  const waveformAnalyserRef = useWaveformAnalyser({
+    audioBinRef,
+    isJoined,
+    localMicTrack,
+  });
 
   return (
     <div className="flex flex-1 flex-col">
@@ -154,87 +140,39 @@ export function LandingPage() {
               Free · No account required
             </p>
 
-            {isJoined || status === "error" ? (
-              <div className="mt-8 w-full max-w-lg rounded-xl border border-border bg-white p-4 text-left text-sm">
-                <div className="flex items-center justify-between">
-                  <div className="text-muted">Status</div>
-                  <div className="font-medium text-foreground">{status}</div>
+            {isJoined ? (
+              <RoomDashboard
+                participants={participants}
+                micEnabled={micEnabled}
+                micLevel={micLevel}
+                activeSpeakerCount={activeSpeakerCount}
+                error={error}
+                analyserRef={waveformAnalyserRef}
+              />
+            ) : status === "error" ? (
+              <div className="mx-auto mt-8 w-full max-w-lg rounded-xl border border-border bg-white p-5 text-center text-sm">
+                <div className="rounded-md bg-red-50 px-3 py-2 text-red-700">
+                  {error}
                 </div>
-                {isJoined ? (
-                  <>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="text-muted">Participants</div>
-                      <div className="font-medium text-foreground">
-                        {participants}
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="text-muted">Mic</div>
-                      <div className="font-medium text-foreground">
-                        {micEnabled ? "on" : "off"}
-                      </div>
-                    </div>
-                    {micEnabled ? (
-                      <div className="mt-2 flex items-center justify-between gap-4">
-                        <div className="text-muted">Mic level</div>
-                        <div className="flex-1">
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-border">
-                            <div
-                              className="h-full bg-foreground"
-                              style={{
-                                width: `${Math.min(100, Math.round(micLevel * 100))}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="text-muted">Active chanters</div>
-                      <div className="font-medium text-foreground">
-                        {activeSpeakerCount + (micEnabled ? 1 : 0)}
-                      </div>
-                    </div>
-                  </>
-                ) : null}
-                {error ? (
-                  <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-red-700">
-                    {error}
-                  </div>
-                ) : null}
               </div>
             ) : null}
           </div>
 
           {landingConfig.showHeroGraphic ? (
-          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-            <GraphicImage
-              pngSrc="/hero-graphic.png"
-              svgSrc="/hero-graphic.svg"
-              alt="Global chanting circle"
-              className="mx-auto w-full max-w-md"
+            <HeroCircleViz
+              chanterCount={circleCount}
+              activeChanters={activeChanters}
             />
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <p className="text-xs tracking-[0.2em] text-gold uppercase">
-                Live now
-              </p>
-              <p className="font-display mt-2 text-5xl font-medium text-foreground">
-                {formatCount(listeners)}
-              </p>
-              <p className="mt-1 text-sm text-muted">people in the circle</p>
-            </div>
-          </div>
           ) : null}
         </section>
 
         {/* Stats bar */}
         <section className="border-y border-border bg-white">
-          <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-8 sm:grid-cols-3">
             {[
-              { label: "Listening now", value: formatCount(listeners) },
               {
-                label: "Chanting now",
-                value: formatCount(chanters),
+                label: "Chanters now",
+                value: formatCount(circleCount),
                 highlight: true,
               },
               { label: "Countries", value: String(COUNTRIES_COUNT) },
@@ -257,30 +195,14 @@ export function LandingPage() {
         </section>
 
         {landingConfig.showWaveform ? (
-        <section className="mx-auto max-w-6xl px-6 py-14">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs tracking-[0.2em] text-gold uppercase">
-                Live sound
-              </p>
-              <p className="mt-1 text-sm text-muted">Recorded in real time</p>
-            </div>
-            <button
-              type="button"
-              className="h-11 cursor-pointer self-start rounded-full border border-border px-6 text-xs font-semibold tracking-[0.12em] text-foreground uppercase disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
-              onClick={() => join({ withMic: false })}
-              disabled={status === "joining" || isJoined}
-            >
-              Listen only
-            </button>
-          </div>
-          <GraphicImage
-            pngSrc="/waveform.png"
-            svgSrc="/waveform.svg"
-            alt="Live audio waveform"
-            className="mt-6 w-full"
+          <LiveWaveform
+            isJoined={isJoined}
+            isJoining={status === "joining"}
+            micAvailable={micAvailable}
+            analyserRef={waveformAnalyserRef}
+            onJoinWithMic={() => join({ withMic: true })}
+            onListenOnly={() => join({ withMic: false })}
           />
-        </section>
         ) : null}
 
         {/* Features */}

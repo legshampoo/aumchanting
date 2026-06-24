@@ -1,5 +1,5 @@
 import { RoomServiceClient } from 'livekit-server-sdk';
-import { droneConfig } from './drone-config.js';
+import { droneConfig, isBotIdentity } from './drone-config.js';
 
 const ROOM = droneConfig.room;
 
@@ -18,11 +18,29 @@ function roomService(): RoomServiceClient {
   return new RoomServiceClient(livekitApiHost(), apiKey, apiSecret);
 }
 
-function isDroneIdentity(identity: string): boolean {
-  return (
-    identity === droneConfig.identity ||
-    identity.startsWith(`${droneConfig.reservedIdPrefix}-`)
-  );
+function isPublishingAudio(participant: {
+  tracks?: { type?: number; muted?: boolean; source?: number }[];
+}): boolean {
+  return (participant.tracks ?? []).some((track) => {
+    if (track.muted) return false;
+    // AUDIO = 0, MICROPHONE source = 1 in LiveKit protocol
+    return track.type === 0 && (track.source === 1 || track.source === undefined);
+  });
+}
+
+export async function evictDisabledDrone(): Promise<void> {
+  if (droneConfig.enabled) return;
+  try {
+    await roomService().removeParticipant(ROOM, droneConfig.identity);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (
+      !message.includes('requested room does not exist') &&
+      !message.includes('participant not found')
+    ) {
+      console.warn('[room-stats] evict drone:', message);
+    }
+  }
 }
 
 export async function getRoomStats(): Promise<{
@@ -30,12 +48,25 @@ export async function getRoomStats(): Promise<{
   chanters: number;
 }> {
   const participants = await roomService().listParticipants(ROOM);
-  const humans = participants.filter((p) => !isDroneIdentity(p.identity));
 
-  const listeners = humans.length;
-  const chanters = humans.filter((p) =>
-    (p.tracks ?? []).some((track) => track.type === 0 && !track.muted),
-  ).length;
+  if (
+    !droneConfig.enabled &&
+    participants.some((p) => isBotIdentity(p.identity))
+  ) {
+    await evictDisabledDrone();
+    const refreshed = await roomService().listParticipants(ROOM);
+    return countHumans(refreshed);
+  }
 
-  return { listeners, chanters };
+  return countHumans(participants);
+}
+
+function countHumans(
+  participants: Awaited<ReturnType<RoomServiceClient['listParticipants']>>,
+) {
+  const humans = participants.filter((p) => !isBotIdentity(p.identity));
+  return {
+    listeners: humans.length,
+    chanters: humans.filter((p) => isPublishingAudio(p)).length,
+  };
 }

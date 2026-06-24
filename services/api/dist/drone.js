@@ -69,7 +69,7 @@ export function getDroneStatus() {
     });
 }
 export function notifyHumanActivity(room = ROOM) {
-    if (room !== ROOM)
+    if (!droneConfig.enabled || room !== ROOM)
         return;
     controller?.onHumanActivity();
 }
@@ -302,6 +302,8 @@ class DroneController {
     }
 }
 export function startDrone() {
+    if (!droneConfig.enabled)
+        return;
     try {
         controller = new DroneController();
         controller.start();

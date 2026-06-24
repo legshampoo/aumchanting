@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createLocalAudioTrack,
+  ConnectionState,
   Room,
   RoomEvent,
   type LocalAudioTrack,
   type Participant,
   Track,
 } from "livekit-client";
+import { isBotIdentity } from "../lib/room-identity";
 
 function isIOSDevice() {
   return (
@@ -53,6 +55,9 @@ export function useGlobalAumRoom() {
   const [micLevel, setMicLevel] = useState(0);
   const [activeSpeakerCount, setActiveSpeakerCount] = useState(0);
   const [micAvailable, setMicAvailable] = useState(false);
+  const [localMicTrack, setLocalMicTrack] = useState<MediaStreamTrack | null>(
+    null,
+  );
 
   const audioBinRef = useRef<HTMLDivElement | null>(null);
   const audioBySid = useRef(new Map<string, AudioHandle>());
@@ -157,12 +162,22 @@ export function useGlobalAumRoom() {
   }
 
   useEffect(() => {
+    function countHumanParticipants(): number {
+      if (room.state !== ConnectionState.Connected) return 0;
+      let count = 1;
+      for (const participant of room.remoteParticipants.values()) {
+        if (!isBotIdentity(participant.identity)) count++;
+      }
+      return count;
+    }
+
     function syncParticipants() {
-      setParticipants(1 + room.remoteParticipants.size);
+      setParticipants(countHumanParticipants());
     }
 
     function onActiveSpeakersChanged(speakers: Participant[]) {
-      const others = speakers.filter(
+      const humans = speakers.filter((p) => !isBotIdentity(p.identity));
+      const others = humans.filter(
         (p) => p.identity !== room.localParticipant.identity,
       );
       setActiveSpeakerCount(others.length);
@@ -230,11 +245,13 @@ export function useGlobalAumRoom() {
           echoCancellation: false,
         });
         localMicTrackRef.current = micTrack;
+        setLocalMicTrack(micTrack.mediaStreamTrack);
         await room.localParticipant.publishTrack(micTrack);
         setMicEnabled(true);
         void startMicMeter(micTrack);
       } else {
         setMicEnabled(false);
+        setLocalMicTrack(null);
         stopMicMeter();
       }
 
@@ -251,6 +268,7 @@ export function useGlobalAumRoom() {
       stopMicMeter();
       localMicTrackRef.current?.stop();
       localMicTrackRef.current = null;
+      setLocalMicTrack(null);
       try {
         await room.disconnect();
       } catch {
@@ -274,12 +292,14 @@ export function useGlobalAumRoom() {
         } finally {
           localMicTrackRef.current.stop();
           localMicTrackRef.current = null;
+          setLocalMicTrack(null);
         }
       }
 
       await room.disconnect();
       clearRemoteAudio();
       setMicEnabled(false);
+      setLocalMicTrack(null);
       setStatus("idle");
       resetRoom();
     } catch (e) {
@@ -299,6 +319,7 @@ export function useGlobalAumRoom() {
     micLevel,
     activeSpeakerCount,
     audioBinRef,
+    localMicTrack,
     join,
     leave,
   };

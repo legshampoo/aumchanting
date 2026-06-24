@@ -4,7 +4,7 @@ import express from 'express';
 import { AccessToken } from 'livekit-server-sdk';
 import { droneConfig } from './drone-config.js';
 import { getDroneStatus, notifyHumanActivity, startDrone } from './drone.js';
-import { getRoomStats } from './room-stats.js';
+import { evictDisabledDrone, getRoomStats } from './room-stats.js';
 
 type TokenRequestBody = {
   room?: string;
@@ -77,6 +77,9 @@ app.listen(port, () => {
   console.log(`api listening on http://localhost:${port}`);
   if (droneConfig.enabled) {
     startDrone();
+  } else {
+    console.log('[drone] disabled in drone-config.ts');
+    void evictDisabledDrone();
   }
 });
 

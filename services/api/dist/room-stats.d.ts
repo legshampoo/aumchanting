@@ -1,3 +1,4 @@
+export declare function evictDisabledDrone(): Promise<void>;
 export declare function getRoomStats(): Promise<{
     listeners: number;
     chanters: number;

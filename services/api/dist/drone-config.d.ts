@@ -1,6 +1,7 @@
 /** Ambient drone bot settings — edit here, not in .env */
 export declare const droneConfig: {
-    readonly enabled: true;
+    /** When false, the drone never starts or joins the room */
+    readonly enabled: false;
     readonly room: "globalAum";
     readonly identity: "drone-bot";
     /** Block guest tokens matching `drone-*` */
@@ -40,4 +41,5 @@ export declare const droneConfig: {
     readonly joinGraceMs: 90000;
     readonly reconnectMs: 5000;
 };
+export declare function isBotIdentity(identity: string | undefined): boolean;
 //# sourceMappingURL=drone-config.d.ts.map
