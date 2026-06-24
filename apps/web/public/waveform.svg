@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" fill="none" role="img" aria-label="Waveform placeholder">
+  <rect width="1200" height="120" fill="#faf9f6"/>
+  <path d="M0 60 Q30 20 60 60 T120 60 T180 60 T240 60 T300 60 T360 60 T420 60 T480 60 T540 60 T600 60 T660 60 T720 60 T780 60 T840 60 T900 60 T960 60 T1020 60 T1080 60 T1140 60 T1200 60" stroke="#1a1a1a" stroke-width="2" fill="none" opacity="0.15"/>
+  <path d="M0 60 Q20 10 40 60 T80 60 T120 60 T160 60 T200 60 T240 60 T280 60 T320 60 T360 60 T400 60 T440 60 T480 60 T520 60 T560 60 T600 60 T640 60 T680 60 T720 60 T760 60 T800 60 T840 60 T880 60 T920 60 T960 60 T1000 60 T1040 60 T1080 60 T1120 60 T1160 60 T1200 60" stroke="#1a1a1a" stroke-width="2.5" fill="none"/>
+  <text x="600" y="100" text-anchor="middle" fill="#6b6b6b" font-family="system-ui, sans-serif" font-size="12">Replace with waveform.png</text>
+</svg>

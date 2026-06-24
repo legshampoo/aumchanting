@@ -10,10 +10,10 @@ type BetaSignupModalProps = {
 type FormStatus = "idle" | "submitting" | "success" | "error";
 
 const inputClassName =
-  "mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-zinc-600";
+  "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground outline-none focus:border-gold";
 
 const secondaryButtonClassName =
-  "h-10 w-48 cursor-pointer rounded-full border border-zinc-200 text-sm text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-50";
+  "h-11 cursor-pointer rounded-full border border-border px-6 text-xs font-semibold tracking-[0.12em] text-foreground uppercase";
 
 export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
   const [name, setName] = useState("");
@@ -77,7 +77,7 @@ export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
       role="presentation"
     >
       <div
-        className="w-full max-w-md rounded-xl border border-zinc-200 bg-zinc-50 p-6 shadow-lg dark:border-zinc-800 dark:bg-zinc-950"
+        className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-lg"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -86,14 +86,14 @@ export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
         <div className="flex items-start justify-between gap-4">
           <h2
             id="beta-signup-title"
-            className="text-lg font-semibold text-zinc-950 dark:text-zinc-50"
+            className="font-display text-xl font-medium text-foreground"
           >
             Join the Android Beta Test
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
+            className="cursor-pointer text-sm text-muted hover:text-foreground"
             aria-label="Close"
           >
             Close
@@ -102,10 +102,8 @@ export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
 
         {status === "success" ? (
           <div className="mt-4 text-center">
-            <p className="font-medium text-zinc-950 dark:text-zinc-50">
-              Thank you!
-            </p>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="font-medium text-foreground">Thank you!</p>
+            <p className="mt-2 text-sm text-muted">
               Keep an eye out for an email with the app download link.
             </p>
             <button
@@ -118,14 +116,14 @@ export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Sign up to test the Aumchanting Android app.
+            <p className="text-sm text-muted">
+              Sign up to test the AUM Chanting Android app.
             </p>
 
             <div>
               <label
                 htmlFor="beta-name"
-                className="block text-sm font-medium text-zinc-950 dark:text-zinc-50"
+                className="block text-sm font-medium text-foreground"
               >
                 Name
               </label>
@@ -145,7 +143,7 @@ export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
             <div>
               <label
                 htmlFor="beta-email"
-                className="block text-sm font-medium text-zinc-950 dark:text-zinc-50"
+                className="block text-sm font-medium text-foreground"
               >
                 Email
               </label>
@@ -163,7 +161,7 @@ export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
             </div>
 
             {errorMessage ? (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200">
+              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
                 {errorMessage}
               </p>
             ) : null}
@@ -171,7 +169,7 @@ export function BetaSignupModal({ open, onClose }: BetaSignupModalProps) {
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="h-10 w-full cursor-pointer rounded-full bg-zinc-950 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950"
+              className="h-11 w-full cursor-pointer rounded-full bg-foreground text-xs font-semibold tracking-[0.12em] text-background uppercase disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "submitting" ? "Submitting…" : "Submit"}
             </button>

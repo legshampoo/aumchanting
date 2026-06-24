@@ -7,8 +7,8 @@ export declare const droneConfig: {
     readonly reservedIdPrefix: "drone";
     readonly displayName: "Ambient Om";
     readonly tokenTtl: "10h";
-    /** 0–1 peak scale before int16 conversion */
-    readonly volume: 1;
+    /** 0–1 peak scale before int16 conversion (2.5 ≈ former client playback boost) */
+    readonly volume: 2.5;
     readonly sampleRate: 48000;
     readonly channels: 1;
     readonly frameSamples: 480;

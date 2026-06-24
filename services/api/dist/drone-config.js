@@ -7,8 +7,8 @@ export const droneConfig = {
     reservedIdPrefix: 'drone',
     displayName: 'Ambient Om',
     tokenTtl: '10h',
-    /** 0–1 peak scale before int16 conversion */
-    volume: 1,
+    /** 0–1 peak scale before int16 conversion (2.5 ≈ former client playback boost) */
+    volume: 2.5,
     sampleRate: 48000,
     channels: 1,
     frameSamples: 480,

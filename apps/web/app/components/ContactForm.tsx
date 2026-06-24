@@ -5,7 +5,7 @@ import { useState } from "react";
 type FormStatus = "idle" | "submitting" | "success" | "error";
 
 const inputClassName =
-  "mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-zinc-600";
+  "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground outline-none focus:border-gold";
 
 export function ContactForm() {
   const [name, setName] = useState("");
@@ -46,16 +46,14 @@ export function ContactForm() {
 
   if (status === "success") {
     return (
-      <div className="rounded-xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-950">
-        <p className="font-medium text-zinc-950 dark:text-zinc-50">
-          Message sent
-        </p>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-border bg-white p-6 text-center">
+        <p className="font-medium text-foreground">Message sent</p>
+        <p className="mt-2 text-sm text-muted">
           Thanks for reaching out. We&apos;ll get back to you soon.
         </p>
         <button
           type="button"
-          className="mt-4 cursor-pointer text-sm text-zinc-600 underline hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
+          className="mt-4 cursor-pointer text-sm text-muted underline hover:text-foreground"
           onClick={() => setStatus("idle")}
         >
           Send another message
@@ -69,7 +67,7 @@ export function ContactForm() {
       <div>
         <label
           htmlFor="contact-name"
-          className="block text-sm font-medium text-zinc-950 dark:text-zinc-50"
+          className="block text-sm font-medium text-foreground"
         >
           Name
         </label>
@@ -89,7 +87,7 @@ export function ContactForm() {
       <div>
         <label
           htmlFor="contact-email"
-          className="block text-sm font-medium text-zinc-950 dark:text-zinc-50"
+          className="block text-sm font-medium text-foreground"
         >
           Email
         </label>
@@ -109,7 +107,7 @@ export function ContactForm() {
       <div>
         <label
           htmlFor="contact-message"
-          className="block text-sm font-medium text-zinc-950 dark:text-zinc-50"
+          className="block text-sm font-medium text-foreground"
         >
           Message
         </label>
@@ -126,7 +124,7 @@ export function ContactForm() {
       </div>
 
       {errorMessage ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200">
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {errorMessage}
         </p>
       ) : null}
@@ -134,7 +132,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="h-10 w-full cursor-pointer rounded-full bg-zinc-950 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-40 dark:bg-zinc-50 dark:text-zinc-950"
+        className="h-11 w-full cursor-pointer rounded-full bg-foreground text-xs font-semibold tracking-[0.12em] text-background uppercase disabled:cursor-not-allowed disabled:opacity-50 sm:w-40"
       >
         {status === "submitting" ? "Sending…" : "Send message"}
       </button>

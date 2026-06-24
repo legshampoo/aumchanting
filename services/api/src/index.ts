@@ -4,6 +4,7 @@ import express from 'express';
 import { AccessToken } from 'livekit-server-sdk';
 import { droneConfig } from './drone-config.js';
 import { getDroneStatus, notifyHumanActivity, startDrone } from './drone.js';
+import { getRoomStats } from './room-stats.js';
 
 type TokenRequestBody = {
   room?: string;
@@ -18,6 +19,16 @@ app.use(express.json());
 app.get('/health', (_req, res) =>
   res.json({ ok: true, drone: getDroneStatus() }),
 );
+
+app.get('/room-stats', async (_req, res) => {
+  try {
+    const stats = await getRoomStats();
+    return res.json(stats);
+  } catch (err) {
+    console.warn('[room-stats]', err);
+    return res.json({ listeners: 0, chanters: 0 });
+  }
+});
 
 app.post('/token', async (req, res) => {
   const LIVEKIT_URL = process.env.LIVEKIT_URL;

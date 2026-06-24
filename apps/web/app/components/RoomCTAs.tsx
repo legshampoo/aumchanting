@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { BetaSignupModal } from "./BetaSignupModal";
+import { BetaTestButton } from "./BetaTestButton";
 
 type RoomCTAsProps = {
   status: "idle" | "joining" | "joined" | "leaving" | "error";
@@ -11,10 +10,15 @@ type RoomCTAsProps = {
   onListenOnly: () => void;
   onLeave: () => void;
   className?: string;
+  align?: "center" | "start";
+  showBetaTest?: boolean;
 };
 
+const primaryButtonClassName =
+  "h-11 cursor-pointer rounded-full bg-foreground px-6 text-xs font-semibold tracking-[0.12em] text-background uppercase disabled:cursor-not-allowed disabled:opacity-50";
+
 const secondaryButtonClassName =
-  "h-10 w-48 cursor-pointer rounded-full border border-zinc-200 text-sm text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-50";
+  "h-11 cursor-pointer rounded-full border border-border px-6 text-xs font-semibold tracking-[0.12em] text-foreground uppercase disabled:cursor-not-allowed disabled:opacity-50";
 
 export function RoomCTAs({
   status,
@@ -23,57 +27,51 @@ export function RoomCTAs({
   onJoinWithMic,
   onListenOnly,
   onLeave,
-  className = "mt-10",
+  className = "",
+  align = "center",
+  showBetaTest = true,
 }: RoomCTAsProps) {
-  const [betaModalOpen, setBetaModalOpen] = useState(false);
+  const alignClass = align === "start" ? "items-start" : "items-center";
 
   return (
-    <>
-      <div className={`flex flex-col items-center gap-3 ${className}`}>
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <button
-            type="button"
-            className="h-10 w-40 cursor-pointer rounded-full bg-zinc-950 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950"
-            onClick={onJoinWithMic}
-            disabled={status === "joining" || isJoined || !micAvailable}
-            title={
-              micAvailable
-                ? undefined
-                : "Microphone requires HTTPS (not available on plain HTTP)"
-            }
-          >
-            Join + Mic
-          </button>
-          <button
-            type="button"
-            className={secondaryButtonClassName}
-            onClick={onListenOnly}
-            disabled={status === "joining" || isJoined}
-          >
-            Listen only
-          </button>
-          {isJoined ? (
-            <button
-              type="button"
-              className="h-10 w-40 cursor-pointer rounded-full border border-red-200 text-sm text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30"
-              onClick={onLeave}
-            >
-              Leave
-            </button>
-          ) : null}
-        </div>
+    <div className={`flex flex-col gap-3 ${alignClass} ${className}`}>
+      <div
+        className={`flex flex-col gap-3 sm:flex-row sm:flex-wrap ${
+          align === "start" ? "sm:justify-start" : "sm:justify-center"
+        }`}
+      >
         <button
           type="button"
-          className={`${secondaryButtonClassName} w-56`}
-          onClick={() => setBetaModalOpen(true)}
+          className={primaryButtonClassName}
+          onClick={onJoinWithMic}
+          disabled={status === "joining" || isJoined || !micAvailable}
+          title={
+            micAvailable
+              ? undefined
+              : "Microphone requires HTTPS (not available on plain HTTP)"
+          }
         >
-          Join the Android Beta Test
+          Join + Mic
         </button>
+        <button
+          type="button"
+          className={secondaryButtonClassName}
+          onClick={onListenOnly}
+          disabled={status === "joining" || isJoined}
+        >
+          Listen only
+        </button>
+        {isJoined ? (
+          <button
+            type="button"
+            className="h-11 cursor-pointer rounded-full border border-red-200 px-6 text-xs font-semibold tracking-[0.12em] text-red-700 uppercase hover:bg-red-50"
+            onClick={onLeave}
+          >
+            Leave
+          </button>
+        ) : null}
       </div>
-      <BetaSignupModal
-        open={betaModalOpen}
-        onClose={() => setBetaModalOpen(false)}
-      />
-    </>
+      {showBetaTest ? <BetaTestButton /> : null}
+    </div>
   );
 }

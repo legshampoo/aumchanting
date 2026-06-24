@@ -3,25 +3,25 @@ import Link from "next/link";
 import { ContactForm } from "../components/ContactForm";
 
 export const metadata: Metadata = {
-  title: "Contact — A living global chant",
+  title: "Contact — AUM Chanting",
   description: "Get in touch with the team.",
 };
 
 export default function ContactPage() {
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 font-sans dark:bg-black">
-      <main className="mx-auto w-full max-w-2xl px-6 py-16 text-zinc-800 dark:text-zinc-200">
+    <div className="flex flex-1 flex-col">
+      <main className="mx-auto w-full max-w-2xl px-6 py-16">
         <Link
           href="/"
-          className="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="text-xs tracking-[0.14em] text-muted uppercase transition-colors hover:text-foreground"
         >
-          ← Back to home
+          ← Back to circle
         </Link>
 
-        <h1 className="mt-6 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+        <h1 className="mt-6 font-display text-4xl font-medium text-foreground">
           Contact
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-muted">
           Questions, feedback, or ideas — send us a message and we&apos;ll get
           back to you.
         </p>

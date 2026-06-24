@@ -2,25 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Aumchanting",
+  title: "Terms of Service — AUM Chanting",
   description: "Terms of service for the Aumchanting app and website.",
 };
 
 export default function TermsPage() {
   return (
-    <div className="flex flex-col flex-1 bg-zinc-50 font-sans dark:bg-black">
-      <main className="mx-auto w-full max-w-2xl px-6 py-16 text-zinc-800 dark:text-zinc-200">
+    <div className="flex flex-1 flex-col">
+      <main className="mx-auto w-full max-w-2xl px-6 py-16 text-foreground">
         <Link
           href="/"
-          className="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="text-xs tracking-[0.14em] text-muted uppercase transition-colors hover:text-foreground"
         >
-          ← Back to Aumchanting
+          ← Back to circle
         </Link>
 
-        <h1 className="mt-6 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+        <h1 className="mt-6 font-display text-4xl font-medium text-foreground">
           Terms of Service
         </h1>
-        <p className="mt-2 text-sm text-zinc-500">Last updated: June 6, 2026</p>
+        <p className="mt-2 text-sm text-muted">Last updated: June 6, 2026</p>
 
         <div className="mt-8 space-y-6 text-sm leading-relaxed">
           <section>
