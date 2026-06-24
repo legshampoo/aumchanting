@@ -1,7 +1,7 @@
 "use client";
 
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const SIZE = 400;
 const CX = SIZE / 2;
@@ -374,15 +374,5 @@ function HeroCircleAnimated({
 }
 
 export function HeroCircleViz(props: HeroCircleVizProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return <HeroCircleStatic {...props} />;
-  }
-
   return <HeroCircleAnimated {...props} />;
 }
