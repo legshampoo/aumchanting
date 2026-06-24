@@ -72,11 +72,14 @@ export function WaveformCanvas({
       if (isJoined && analyser) {
         const buffer = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(buffer);
+        const amps = liveAmplitudes(buffer, bars);
+        const peak = amps.reduce((max, amp) => Math.max(max, amp), 0);
+
         drawBarWaveform(
           context,
           width,
           height,
-          liveAmplitudes(buffer, bars),
+          peak < 0.03 ? idleAmplitudes(bars, now - start) : amps,
         );
       } else {
         drawBarWaveform(

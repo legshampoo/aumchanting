@@ -8,7 +8,6 @@ type RoomCTAsProps = {
   micAvailable: boolean;
   onJoinWithMic: () => void;
   onListenOnly: () => void;
-  onLeave: () => void;
   className?: string;
   align?: "center" | "start";
   showBetaTest?: boolean;
@@ -26,7 +25,6 @@ export function RoomCTAs({
   micAvailable,
   onJoinWithMic,
   onListenOnly,
-  onLeave,
   className = "",
   align = "center",
   showBetaTest = true,
@@ -61,15 +59,6 @@ export function RoomCTAs({
         >
           Listen only
         </button>
-        {isJoined ? (
-          <button
-            type="button"
-            className="h-11 cursor-pointer rounded-full border border-red-200 px-6 text-xs font-semibold tracking-[0.12em] text-red-700 uppercase hover:bg-red-50"
-            onClick={onLeave}
-          >
-            Leave
-          </button>
-        ) : null}
       </div>
       {showBetaTest ? <BetaTestButton /> : null}
     </div>

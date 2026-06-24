@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { landingConfig } from "../landing-config";
 import { BetaTestButton } from "./BetaTestButton";
 import {
@@ -102,7 +103,6 @@ export function LandingPage() {
     micAvailable,
     onJoinWithMic: () => join({ withMic: true }),
     onListenOnly: () => join({ withMic: false }),
-    onLeave: leave,
   };
 
   const waveformAnalyserRef = useWaveformAnalyser({
@@ -110,6 +110,21 @@ export function LandingPage() {
     isJoined,
     localMicTrack,
   });
+
+  const dashboardRef = useRef<HTMLElement>(null);
+  const wasJoinedRef = useRef(false);
+
+  useEffect(() => {
+    if (isJoined && !wasJoinedRef.current) {
+      requestAnimationFrame(() => {
+        dashboardRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+    wasJoinedRef.current = isJoined;
+  }, [isJoined]);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -140,16 +155,7 @@ export function LandingPage() {
               Free · No account required
             </p>
 
-            {isJoined ? (
-              <RoomDashboard
-                participants={participants}
-                micEnabled={micEnabled}
-                micLevel={micLevel}
-                activeSpeakerCount={activeSpeakerCount}
-                error={error}
-                analyserRef={waveformAnalyserRef}
-              />
-            ) : status === "error" ? (
+            {!isJoined && status === "error" ? (
               <div className="mx-auto mt-8 w-full max-w-lg rounded-xl border border-border bg-white p-5 text-center text-sm">
                 <div className="rounded-md bg-red-50 px-3 py-2 text-red-700">
                   {error}
@@ -165,6 +171,27 @@ export function LandingPage() {
             />
           ) : null}
         </section>
+
+        {isJoined ? (
+          <section
+            id="room-session"
+            ref={dashboardRef}
+            className="scroll-mt-20 border-b border-border bg-white px-6 py-10"
+            aria-live="polite"
+          >
+            <div className="mx-auto w-full max-w-2xl">
+              <RoomDashboard
+                participants={participants}
+                micEnabled={micEnabled}
+                micLevel={micLevel}
+                error={error}
+                analyserRef={waveformAnalyserRef}
+                isLeaving={status === "leaving"}
+                onLeave={leave}
+              />
+            </div>
+          </section>
+        ) : null}
 
         {/* Stats bar */}
         <section className="border-y border-border bg-white">

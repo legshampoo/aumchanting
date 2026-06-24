@@ -7,23 +7,24 @@ type RoomDashboardProps = {
   participants: number;
   micEnabled: boolean;
   micLevel: number;
-  activeSpeakerCount: number;
   error: string | null;
   analyserRef: RefObject<AnalyserNode | null>;
+  isLeaving: boolean;
+  onLeave: () => void;
 };
 
 export function RoomDashboard({
   participants,
   micEnabled,
   micLevel,
-  activeSpeakerCount,
   error,
   analyserRef,
+  isLeaving,
+  onLeave,
 }: RoomDashboardProps) {
-  const chanters = activeSpeakerCount + (micEnabled ? 1 : 0);
 
   return (
-    <div className="mx-auto mt-8 w-full max-w-lg rounded-xl border border-border bg-white p-5 text-sm">
+    <div className="w-full rounded-xl border border-border bg-white p-5 text-sm shadow-sm">
       <div className="text-center">
         <p className="text-xs tracking-[0.2em] text-gold uppercase">Live sound</p>
         <p className="mt-1 text-xs tracking-[0.14em] text-muted uppercase">
@@ -43,7 +44,7 @@ export function RoomDashboard({
 
       <dl className="mt-5 space-y-2 text-center">
         <div className="flex items-center justify-between gap-4">
-          <dt className="text-muted">Participants</dt>
+          <dt className="text-muted">Active chanters</dt>
           <dd className="font-medium text-foreground">{participants}</dd>
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -67,10 +68,6 @@ export function RoomDashboard({
             </dd>
           </div>
         ) : null}
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-muted">Active chanters</dt>
-          <dd className="font-medium text-foreground">{chanters}</dd>
-        </div>
       </dl>
 
       {error ? (
@@ -78,6 +75,17 @@ export function RoomDashboard({
           {error}
         </div>
       ) : null}
+
+      <div className="mt-6 flex justify-center">
+        <button
+          type="button"
+          className="h-11 cursor-pointer rounded-full border border-red-200 px-6 text-xs font-semibold tracking-[0.12em] text-red-700 uppercase hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={onLeave}
+          disabled={isLeaving}
+        >
+          Leave
+        </button>
+      </div>
     </div>
   );
 }
