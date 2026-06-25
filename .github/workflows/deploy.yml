@@ -76,11 +76,14 @@ jobs:
           LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
           LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
           LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          CONTACT_FROM_EMAIL: ${{ secrets.CONTACT_FROM_EMAIL }}
+          CONTACT_TO_EMAIL: ${{ secrets.CONTACT_TO_EMAIL }}
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
-          envs: GITHUB_REPOSITORY,GITHUB_SHA,LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET
+          envs: GITHUB_REPOSITORY,GITHUB_SHA,LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET,RESEND_API_KEY,CONTACT_FROM_EMAIL,CONTACT_TO_EMAIL
           script: |
             set -euo pipefail
             if ! command -v docker >/dev/null 2>&1; then
@@ -98,6 +101,9 @@ jobs:
               printf '%s=%s\n' LIVEKIT_URL "$LIVEKIT_URL"
               printf '%s=%s\n' LIVEKIT_API_KEY "$LIVEKIT_API_KEY"
               printf '%s=%s\n' LIVEKIT_API_SECRET "$LIVEKIT_API_SECRET"
+              printf '%s=%s\n' RESEND_API_KEY "$RESEND_API_KEY"
+              printf '%s=%s\n' CONTACT_FROM_EMAIL "$CONTACT_FROM_EMAIL"
+              printf '%s=%s\n' CONTACT_TO_EMAIL "$CONTACT_TO_EMAIL"
             } > /opt/aumchanting/.env
             chmod 600 /opt/aumchanting/.env
             cd /opt/aumchanting
