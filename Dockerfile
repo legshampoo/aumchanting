@@ -11,7 +11,9 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL=
+ARG NEXT_PUBLIC_SITE_URL=https://aumchanting.com
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN pnpm --filter web build && pnpm --filter api build
 RUN pnpm --filter api deploy --prod --legacy /app/api
 RUN cd /app/api && node --input-type=module -e "import('@livekit/rtc-node').then(() => console.log('rtc-node native binding ok'))"

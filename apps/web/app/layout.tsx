@@ -16,10 +16,30 @@ const dmSans = DM_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://aumchanting.com");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "AUM Chanting",
   description:
     "A live, global OM chanting circle. Join anytime. Chant, listen, or simply be present.",
+  openGraph: {
+    title: "AUM Chanting",
+    description:
+      "A live, global OM chanting circle. Join anytime. Chant, listen, or simply be present.",
+    siteName: "AUM Chanting",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AUM Chanting",
+    description:
+      "A live, global OM chanting circle. Join anytime. Chant, listen, or simply be present.",
+  },
 };
 
 export default function RootLayout({
