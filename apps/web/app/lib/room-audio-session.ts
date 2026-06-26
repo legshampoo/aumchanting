@@ -1,12 +1,32 @@
 /**
  * Single Web Audio session for the room: visualization and mic metering only.
- * Playback stays on LiveKit-attached <audio> elements — never tap those via
- * createMediaElementSource, which can hijack or silence WebRTC playback.
+ *
+ * Playback stays entirely on the LiveKit-attached <audio> elements. For remote
+ * visualization we tap el.captureStream() — a non-destructive copy of the
+ * element's OUTPUT. We never feed the live remote WebRTC track into the
+ * AudioContext: WebKit (and sometimes Chrome) will then route that track
+ * exclusively into Web Audio and silence the <audio> element. We also never use
+ * createMediaElementSource, which re-routes the element into the graph.
+ *
+ * If captureStream() is unavailable (older iOS WebKit), we simply skip the
+ * remote tap so playback is never at risk; the waveform falls back to mic/idle.
  */
 
 const WAVEFORM_FFT_SIZE = 512;
 const WAVEFORM_SMOOTHING = 0.78;
 const MIC_METER_FFT_SIZE = 1024;
+
+function captureElementStream(el: HTMLMediaElement): MediaStream | null {
+  const capture = (
+    el as HTMLMediaElement & { captureStream?: () => MediaStream }
+  ).captureStream;
+  if (typeof capture !== "function") return null;
+  try {
+    return capture.call(el);
+  } catch {
+    return null;
+  }
+}
 
 export class RoomAudioSession {
   private ctx: AudioContext | null = null;
@@ -50,17 +70,20 @@ export class RoomAudioSession {
     this.micMeterAnalyser = null;
   }
 
-  addRemoteTrack(id: string, track: MediaStreamTrack): void {
+  addRemoteTrack(id: string, el: HTMLMediaElement): void {
     if (!this.ctx || !this.waveformAnalyser || this.remoteSources.has(id)) {
       return;
     }
 
+    const stream = captureElementStream(el);
+    if (!stream) return;
+
     try {
-      const source = this.ctx.createMediaStreamSource(new MediaStream([track]));
+      const source = this.ctx.createMediaStreamSource(stream);
       source.connect(this.waveformAnalyser);
       this.remoteSources.set(id, source);
     } catch {
-      // Track may not be ready yet.
+      // captureStream not yet producing audio; waveform will rely on mic/idle.
     }
   }
 
@@ -71,6 +94,26 @@ export class RoomAudioSession {
     this.remoteSources.delete(id);
   }
 
+  setMicMonitor(el: HTMLMediaElement | null): void {
+    this.clearMic();
+    if (!el || !this.ctx || !this.waveformAnalyser || !this.micMeterAnalyser) {
+      return;
+    }
+
+    const stream = captureElementStream(el);
+    if (!stream) return;
+
+    try {
+      const source = this.ctx.createMediaStreamSource(stream);
+      source.connect(this.waveformAnalyser);
+      source.connect(this.micMeterAnalyser);
+      this.micSource = source;
+    } catch {
+      // captureStream not yet producing audio.
+    }
+  }
+
+  /** Fallback when local monitor playback is disabled — meter/waveform only. */
   setMicTrack(track: MediaStreamTrack | null): void {
     this.clearMic();
     if (!track || !this.ctx || !this.waveformAnalyser || !this.micMeterAnalyser) {

@@ -48,4 +48,9 @@ export const audioConfig = {
    */
   iosAutoGainControl: true,
   defaultAutoGainControl: false,
+
+  playback: {
+    /** Hear your own mic locally while chanting. Use headphones to avoid feedback. */
+    localMonitor: true,
+  },
 } as const;

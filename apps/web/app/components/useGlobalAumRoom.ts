@@ -16,6 +16,7 @@ import {
 } from "../lib/audio-livekit";
 import { RoomAudioSession } from "../lib/room-audio-session";
 import { isBotIdentity } from "../lib/room-identity";
+import { audioConfig } from "../audio-config";
 
 function isIOSDevice() {
   return (
@@ -67,6 +68,10 @@ export function useGlobalAumRoom() {
   const audioBinRef = useRef<HTMLDivElement | null>(null);
   const audioBySid = useRef(new Map<string, AudioHandle>());
   const localMicTrackRef = useRef<LocalAudioTrack | null>(null);
+  const localMicMonitorRef = useRef<{
+    track: LocalAudioTrack;
+    el: HTMLMediaElement;
+  } | null>(null);
   const audioSessionRef = useRef(new RoomAudioSession());
   const waveformAnalyserRef = useRef<AnalyserNode | null>(null);
   const micLevelRafRef = useRef<number | null>(null);
@@ -91,7 +96,14 @@ export function useGlobalAumRoom() {
     el.setAttribute("playsinline", "true");
     audioBinRef.current.appendChild(el);
     audioBySid.current.set(track.sid, { track, el });
-    audioSessionRef.current.addRemoteTrack(track.sid, track.mediaStreamTrack);
+
+    const sid = track.sid;
+    audioSessionRef.current.addRemoteTrack(sid, el);
+    el.addEventListener(
+      "playing",
+      () => audioSessionRef.current.addRemoteTrack(sid, el),
+      { once: true },
+    );
     void el.play().catch(() => {});
   }
 
@@ -107,6 +119,31 @@ export function useGlobalAumRoom() {
     handle.el.remove();
     audioBySid.current.delete(track.sid);
     audioSessionRef.current.removeRemoteTrack(track.sid);
+  }
+
+  function detachLocalMonitor() {
+    const handle = localMicMonitorRef.current;
+    if (!handle) return;
+    try {
+      handle.track.detach(handle.el);
+    } catch {
+      // ignore
+    }
+    handle.el.remove();
+    localMicMonitorRef.current = null;
+  }
+
+  function attachLocalMonitor(track: LocalAudioTrack): HTMLMediaElement | null {
+    if (!audioConfig.playback.localMonitor || !audioBinRef.current) return null;
+    detachLocalMonitor();
+
+    const el = track.attach() as HTMLMediaElement;
+    el.autoplay = true;
+    el.setAttribute("playsinline", "true");
+    audioBinRef.current.appendChild(el);
+    localMicMonitorRef.current = { track, el };
+    void el.play().catch(() => {});
+    return el;
   }
 
   function clearRemoteAudio() {
@@ -129,6 +166,7 @@ export function useGlobalAumRoom() {
 
   function stopAudioSession() {
     stopMicMeter();
+    detachLocalMonitor();
     audioSessionRef.current.stop();
     waveformAnalyserRef.current = null;
   }
@@ -147,9 +185,19 @@ export function useGlobalAumRoom() {
     setMicLevel(0);
   }
 
-  function startMicMeter(track: LocalAudioTrack) {
+  function startMicMeter(track: LocalAudioTrack, monitorEl: HTMLMediaElement | null) {
     stopMicMeter();
-    audioSessionRef.current.setMicTrack(track.mediaStreamTrack);
+
+    if (monitorEl) {
+      audioSessionRef.current.setMicMonitor(monitorEl);
+      monitorEl.addEventListener(
+        "playing",
+        () => audioSessionRef.current.setMicMonitor(monitorEl),
+        { once: true },
+      );
+    } else {
+      audioSessionRef.current.setMicTrack(track.mediaStreamTrack);
+    }
 
     const analyser = audioSessionRef.current.micMeterAnalyserNode;
     if (!analyser) return;
@@ -254,7 +302,8 @@ export function useGlobalAumRoom() {
         setLocalMicTrack(micTrack.mediaStreamTrack);
         await room.localParticipant.publishTrack(micTrack);
         setMicEnabled(true);
-        void startMicMeter(micTrack);
+        const monitorEl = attachLocalMonitor(micTrack);
+        void startMicMeter(micTrack, monitorEl);
       } else {
         setMicEnabled(false);
         setLocalMicTrack(null);
