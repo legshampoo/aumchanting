@@ -10,6 +10,11 @@ import {
   type Participant,
   Track,
 } from "livekit-client";
+import {
+  buildAudioCaptureOptions,
+  buildRoomOptions,
+} from "../lib/audio-livekit";
+import { RoomAudioSession } from "../lib/room-audio-session";
 import { isBotIdentity } from "../lib/room-identity";
 
 function isIOSDevice() {
@@ -46,7 +51,7 @@ export function useGlobalAumRoom() {
   }, []);
 
   const [roomGeneration, setRoomGeneration] = useState(0);
-  const room = useMemo(() => new Room(), [roomGeneration]);
+  const room = useMemo(() => new Room(buildRoomOptions()), [roomGeneration]);
 
   const [status, setStatus] = useState<RoomStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -62,9 +67,9 @@ export function useGlobalAumRoom() {
   const audioBinRef = useRef<HTMLDivElement | null>(null);
   const audioBySid = useRef(new Map<string, AudioHandle>());
   const localMicTrackRef = useRef<LocalAudioTrack | null>(null);
+  const audioSessionRef = useRef(new RoomAudioSession());
+  const waveformAnalyserRef = useRef<AnalyserNode | null>(null);
   const micLevelRafRef = useRef<number | null>(null);
-  const micAudioCtxRef = useRef<AudioContext | null>(null);
-  const micAnalyserRef = useRef<AnalyserNode | null>(null);
 
   const isJoined = status === "joined";
 
@@ -86,6 +91,7 @@ export function useGlobalAumRoom() {
     el.setAttribute("playsinline", "true");
     audioBinRef.current.appendChild(el);
     audioBySid.current.set(track.sid, { track, el });
+    audioSessionRef.current.addRemoteTrack(track.sid, track.mediaStreamTrack);
     void el.play().catch(() => {});
   }
 
@@ -100,6 +106,7 @@ export function useGlobalAumRoom() {
     }
     handle.el.remove();
     audioBySid.current.delete(track.sid);
+    audioSessionRef.current.removeRemoteTrack(track.sid);
   }
 
   function clearRemoteAudio() {
@@ -114,6 +121,18 @@ export function useGlobalAumRoom() {
     audioBySid.current.clear();
   }
 
+  function startAudioSession() {
+    const session = audioSessionRef.current;
+    session.start();
+    waveformAnalyserRef.current = session.waveformAnalyserNode;
+  }
+
+  function stopAudioSession() {
+    stopMicMeter();
+    audioSessionRef.current.stop();
+    waveformAnalyserRef.current = null;
+  }
+
   function resetRoom() {
     clearRemoteAudio();
     setRoomGeneration((n) => n + 1);
@@ -124,34 +143,22 @@ export function useGlobalAumRoom() {
       cancelAnimationFrame(micLevelRafRef.current);
       micLevelRafRef.current = null;
     }
-    micAnalyserRef.current = null;
-    if (micAudioCtxRef.current) {
-      micAudioCtxRef.current.close().catch(() => {});
-      micAudioCtxRef.current = null;
-    }
+    audioSessionRef.current.setMicTrack(null);
     setMicLevel(0);
   }
 
-  async function startMicMeter(track: LocalAudioTrack) {
+  function startMicMeter(track: LocalAudioTrack) {
     stopMicMeter();
+    audioSessionRef.current.setMicTrack(track.mediaStreamTrack);
 
-    const ctx = new AudioContext();
-    if (ctx.state === "suspended") await ctx.resume();
-
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    ctx
-      .createMediaStreamSource(new MediaStream([track.mediaStreamTrack]))
-      .connect(analyser);
-
-    micAudioCtxRef.current = ctx;
-    micAnalyserRef.current = analyser;
+    const analyser = audioSessionRef.current.micMeterAnalyserNode;
+    if (!analyser) return;
 
     const data = new Float32Array(analyser.fftSize);
     const tick = () => {
-      const a = micAnalyserRef.current;
-      if (!a) return;
-      a.getFloatTimeDomainData(data);
+      const meter = audioSessionRef.current.micMeterAnalyserNode;
+      if (!meter) return;
+      meter.getFloatTimeDomainData(data);
       let sumSq = 0;
       for (let i = 0; i < data.length; i++) sumSq += data[i]! * data[i]!;
       const visual = rmsToMeterLevel(Math.sqrt(sumSq / data.length));
@@ -232,6 +239,7 @@ export function useGlobalAumRoom() {
       const data = (await resp.json()) as TokenResponse;
 
       await room.connect(data.url, data.token);
+      startAudioSession();
 
       if (opts.withMic) {
         if (!navigator.mediaDevices?.getUserMedia) {
@@ -239,11 +247,9 @@ export function useGlobalAumRoom() {
             "Microphone needs HTTPS (or localhost). On HTTP use “Listen only”, or add TLS to your site.",
           );
         }
-        const micTrack = await createLocalAudioTrack({
-          autoGainControl: isIOSDevice(),
-          noiseSuppression: false,
-          echoCancellation: false,
-        });
+        const micTrack = await createLocalAudioTrack(
+          buildAudioCaptureOptions(isIOSDevice()),
+        );
         localMicTrackRef.current = micTrack;
         setLocalMicTrack(micTrack.mediaStreamTrack);
         await room.localParticipant.publishTrack(micTrack);
@@ -265,7 +271,7 @@ export function useGlobalAumRoom() {
 
       setStatus("joined");
     } catch (e) {
-      stopMicMeter();
+      stopAudioSession();
       localMicTrackRef.current?.stop();
       localMicTrackRef.current = null;
       setLocalMicTrack(null);
@@ -285,7 +291,7 @@ export function useGlobalAumRoom() {
     setError(null);
 
     try {
-      stopMicMeter();
+      stopAudioSession();
       if (localMicTrackRef.current) {
         try {
           await room.localParticipant.unpublishTrack(localMicTrackRef.current);
@@ -320,6 +326,7 @@ export function useGlobalAumRoom() {
     activeSpeakerCount,
     audioBinRef,
     localMicTrack,
+    waveformAnalyserRef,
     join,
     leave,
   };

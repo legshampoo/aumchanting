@@ -15,7 +15,6 @@ import { LiveWaveform } from "./LiveWaveform";
 import { RoomDashboard } from "./RoomDashboard";
 import { useGlobalAumRoom } from "./useGlobalAumRoom";
 import { useRoomStats } from "./useRoomStats";
-import { useWaveformAnalyser } from "./useWaveformAnalyser";
 
 const COUNTRIES_COUNT = 71;
 
@@ -84,7 +83,7 @@ export function LandingPage() {
     micLevel,
     activeSpeakerCount,
     audioBinRef,
-    localMicTrack,
+    waveformAnalyserRef,
     join,
     leave,
   } = useGlobalAumRoom();
@@ -104,12 +103,6 @@ export function LandingPage() {
     onJoinWithMic: () => join({ withMic: true }),
     onListenOnly: () => join({ withMic: false }),
   };
-
-  const waveformAnalyserRef = useWaveformAnalyser({
-    audioBinRef,
-    isJoined,
-    localMicTrack,
-  });
 
   const dashboardRef = useRef<HTMLElement>(null);
   const wasJoinedRef = useRef(false);
