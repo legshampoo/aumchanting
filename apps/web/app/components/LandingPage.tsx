@@ -84,6 +84,11 @@ export function LandingPage() {
     activeSpeakerCount,
     audioBinRef,
     waveformAnalyserRef,
+    audioPreferences,
+    setMasterVolume,
+    setMicGain,
+    setNoiseSuppression,
+    toggleMic,
     join,
     leave,
   } = useGlobalAumRoom();
@@ -99,9 +104,7 @@ export function LandingPage() {
   const ctaProps = {
     status,
     isJoined,
-    micAvailable,
-    onJoinWithMic: () => join({ withMic: true }),
-    onListenOnly: () => join({ withMic: false }),
+    onJoin: () => join(),
   };
 
   const dashboardRef = useRef<HTMLElement>(null);
@@ -176,9 +179,15 @@ export function LandingPage() {
               <RoomDashboard
                 participants={participants}
                 micEnabled={micEnabled}
+                micAvailable={micAvailable}
                 micLevel={micLevel}
                 error={error}
                 analyserRef={waveformAnalyserRef}
+                audioPreferences={audioPreferences}
+                onMicToggle={toggleMic}
+                onMicGainChange={setMicGain}
+                onMasterVolumeChange={setMasterVolume}
+                onNoiseSuppressionChange={setNoiseSuppression}
                 isLeaving={status === "leaving"}
                 onLeave={leave}
               />
@@ -218,10 +227,8 @@ export function LandingPage() {
           <LiveWaveform
             isJoined={isJoined}
             isJoining={status === "joining"}
-            micAvailable={micAvailable}
             analyserRef={waveformAnalyserRef}
-            onJoinWithMic={() => join({ withMic: true })}
-            onListenOnly={() => join({ withMic: false })}
+            onJoin={() => join()}
           />
         ) : null}
 
@@ -285,12 +292,6 @@ export function LandingPage() {
               <span className="inline-flex h-11 items-center rounded-full border border-border px-6 text-xs font-semibold tracking-[0.12em] text-muted uppercase">
                 Google Play — Coming soon
               </span>
-              <a
-                href="#join"
-                className="inline-flex h-11 items-center rounded-full border border-foreground px-6 text-xs font-semibold tracking-[0.12em] text-foreground uppercase"
-              >
-                Open in web app
-              </a>
             </div>
           </div>
         </section>

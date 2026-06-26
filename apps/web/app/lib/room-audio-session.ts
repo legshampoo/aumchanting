@@ -16,6 +16,17 @@ const WAVEFORM_FFT_SIZE = 512;
 const WAVEFORM_SMOOTHING = 0.78;
 const MIC_METER_FFT_SIZE = 1024;
 
+// Noise gate: passes audio untouched above the open threshold (so a held Om is
+// never attenuated) and mutes the quiet gaps where background hiss lives. Two
+// thresholds give hysteresis to avoid chatter; fast attack + slow release keep
+// transitions smooth.
+const GATE_FFT_SIZE = 1024;
+const GATE_OPEN_THRESHOLD = 0.015; // RMS above this opens the gate
+const GATE_CLOSE_THRESHOLD = 0.008; // RMS below this closes it
+const GATE_ATTACK = 0.005; // seconds (fast open)
+const GATE_RELEASE = 0.18; // seconds (gentle close)
+const GATE_TICK_MS = 30;
+
 function captureElementStream(el: HTMLMediaElement): MediaStream | null {
   const capture = (
     el as HTMLMediaElement & { captureStream?: () => MediaStream }
@@ -34,6 +45,14 @@ export class RoomAudioSession {
   private micMeterAnalyser: AnalyserNode | null = null;
   private remoteSources = new Map<string, MediaStreamAudioSourceNode>();
   private micSource: MediaStreamAudioSourceNode | null = null;
+  private micGainNode: GainNode | null = null;
+  private micDestination: MediaStreamAudioDestinationNode | null = null;
+  private gateGainNode: GainNode | null = null;
+  private gateAnalyser: AnalyserNode | null = null;
+  private gateData: Float32Array<ArrayBuffer> | null = null;
+  private gateTimer: ReturnType<typeof setInterval> | null = null;
+  private gateEnabled = false;
+  private gateOpen = false;
 
   start(): void {
     if (this.ctx) return;
@@ -56,7 +75,7 @@ export class RoomAudioSession {
   }
 
   stop(): void {
-    this.clearMic();
+    this.teardownMicChain();
     for (const source of this.remoteSources.values()) {
       source.disconnect();
     }
@@ -94,40 +113,130 @@ export class RoomAudioSession {
     this.remoteSources.delete(id);
   }
 
-  setMicMonitor(el: HTMLMediaElement | null): void {
-    this.clearMic();
-    if (!el || !this.ctx || !this.waveformAnalyser || !this.micMeterAnalyser) {
-      return;
+  /**
+   * Routes the raw mic through a gain node, taps the meter/waveform analysers
+   * post-gain, and returns a processed MediaStreamTrack to publish so the input
+   * gain slider actually changes how loud others hear you. Returns null if Web
+   * Audio is unavailable — caller should fall back to the raw track.
+   */
+  buildMicChain(
+    rawTrack: MediaStreamTrack,
+    gain: number,
+    gateEnabled: boolean,
+  ): MediaStreamTrack | null {
+    if (!this.ctx || !this.waveformAnalyser || !this.micMeterAnalyser) {
+      return null;
     }
-
-    const stream = captureElementStream(el);
-    if (!stream) return;
+    this.teardownMicChain();
 
     try {
-      const source = this.ctx.createMediaStreamSource(stream);
-      source.connect(this.waveformAnalyser);
-      source.connect(this.micMeterAnalyser);
+      const source = this.ctx.createMediaStreamSource(
+        new MediaStream([rawTrack]),
+      );
+      // Level detector taps the raw source (pre-gate) so the gate can still
+      // "see" your voice resume while it is closed.
+      const gateAnalyser = this.ctx.createAnalyser();
+      gateAnalyser.fftSize = GATE_FFT_SIZE;
+      const gateGain = this.ctx.createGain();
+      gateGain.gain.value = gateEnabled ? 0 : 1;
+      const gainNode = this.ctx.createGain();
+      gainNode.gain.value = gain;
+      const destination = this.ctx.createMediaStreamDestination();
+
+      source.connect(gateAnalyser);
+      source.connect(gateGain);
+      gateGain.connect(gainNode);
+      gainNode.connect(destination);
+      gainNode.connect(this.waveformAnalyser);
+      gainNode.connect(this.micMeterAnalyser);
+
       this.micSource = source;
+      this.gateAnalyser = gateAnalyser;
+      this.gateData = new Float32Array(gateAnalyser.fftSize);
+      this.gateGainNode = gateGain;
+      this.micGainNode = gainNode;
+      this.micDestination = destination;
+      this.gateEnabled = gateEnabled;
+      this.gateOpen = !gateEnabled;
+
+      if (gateEnabled) this.startGateLoop();
+
+      return destination.stream.getAudioTracks()[0] ?? null;
     } catch {
-      // captureStream not yet producing audio.
+      this.teardownMicChain();
+      return null;
     }
   }
 
-  /** Fallback when local monitor playback is disabled — meter/waveform only. */
-  setMicTrack(track: MediaStreamTrack | null): void {
-    this.clearMic();
-    if (!track || !this.ctx || !this.waveformAnalyser || !this.micMeterAnalyser) {
-      return;
+  setMicGain(gain: number): void {
+    if (this.micGainNode) {
+      this.micGainNode.gain.value = gain;
     }
+  }
 
-    try {
-      const source = this.ctx.createMediaStreamSource(new MediaStream([track]));
-      source.connect(this.waveformAnalyser);
-      source.connect(this.micMeterAnalyser);
-      this.micSource = source;
-    } catch {
-      // ignore mic wiring errors
+  /** Enable/disable the noise gate live, without rebuilding the chain. */
+  setNoiseGate(enabled: boolean): void {
+    this.gateEnabled = enabled;
+    if (!this.ctx || !this.gateGainNode) return;
+
+    if (enabled) {
+      this.startGateLoop();
+    } else {
+      this.stopGateLoop();
+      this.gateOpen = true;
+      this.gateGainNode.gain.setTargetAtTime(
+        1,
+        this.ctx.currentTime,
+        GATE_ATTACK,
+      );
     }
+  }
+
+  private startGateLoop(): void {
+    if (this.gateTimer != null) return;
+    this.gateTimer = setInterval(() => {
+      const ctx = this.ctx;
+      const analyser = this.gateAnalyser;
+      const gate = this.gateGainNode;
+      const data = this.gateData;
+      if (!this.gateEnabled || !ctx || !analyser || !gate || !data) return;
+
+      analyser.getFloatTimeDomainData(data);
+      let sumSq = 0;
+      for (let i = 0; i < data.length; i++) sumSq += data[i]! * data[i]!;
+      const rms = Math.sqrt(sumSq / data.length);
+
+      if (!this.gateOpen && rms > GATE_OPEN_THRESHOLD) {
+        this.gateOpen = true;
+        gate.gain.setTargetAtTime(1, ctx.currentTime, GATE_ATTACK);
+      } else if (this.gateOpen && rms < GATE_CLOSE_THRESHOLD) {
+        this.gateOpen = false;
+        gate.gain.setTargetAtTime(0, ctx.currentTime, GATE_RELEASE);
+      }
+    }, GATE_TICK_MS);
+  }
+
+  private stopGateLoop(): void {
+    if (this.gateTimer != null) {
+      clearInterval(this.gateTimer);
+      this.gateTimer = null;
+    }
+  }
+
+  teardownMicChain(): void {
+    this.stopGateLoop();
+    this.micSource?.disconnect();
+    this.gateAnalyser?.disconnect();
+    this.gateGainNode?.disconnect();
+    this.micGainNode?.disconnect();
+    this.micDestination?.disconnect();
+    this.micSource = null;
+    this.gateAnalyser = null;
+    this.gateData = null;
+    this.gateGainNode = null;
+    this.micGainNode = null;
+    this.micDestination = null;
+    this.gateOpen = false;
   }
 
   get waveformAnalyserNode(): AnalyserNode | null {
@@ -136,10 +245,5 @@ export class RoomAudioSession {
 
   get micMeterAnalyserNode(): AnalyserNode | null {
     return this.micMeterAnalyser;
-  }
-
-  private clearMic(): void {
-    this.micSource?.disconnect();
-    this.micSource = null;
   }
 }

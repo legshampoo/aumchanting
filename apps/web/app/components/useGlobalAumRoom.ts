@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  createLocalAudioTrack,
   ConnectionState,
+  LocalAudioTrack,
   Room,
   RoomEvent,
-  type LocalAudioTrack,
   type Participant,
   Track,
 } from "livekit-client";
@@ -14,9 +13,13 @@ import {
   buildAudioCaptureOptions,
   buildRoomOptions,
 } from "../lib/audio-livekit";
+import {
+  loadAudioPreferences,
+  saveAudioPreferences,
+} from "../lib/audio-preferences";
 import { RoomAudioSession } from "../lib/room-audio-session";
 import { isBotIdentity } from "../lib/room-identity";
-import { audioConfig } from "../audio-config";
+import { audioConfig, type AudioPreferences } from "../audio-config";
 
 function isIOSDevice() {
   return (
@@ -64,10 +67,15 @@ export function useGlobalAumRoom() {
   const [localMicTrack, setLocalMicTrack] = useState<MediaStreamTrack | null>(
     null,
   );
+  const [audioPreferences, setAudioPreferences] = useState<AudioPreferences>(
+    () => loadAudioPreferences(),
+  );
 
   const audioBinRef = useRef<HTMLDivElement | null>(null);
   const audioBySid = useRef(new Map<string, AudioHandle>());
+  const audioPreferencesRef = useRef(audioPreferences);
   const localMicTrackRef = useRef<LocalAudioTrack | null>(null);
+  const rawMicStreamRef = useRef<MediaStream | null>(null);
   const localMicMonitorRef = useRef<{
     track: LocalAudioTrack;
     el: HTMLMediaElement;
@@ -79,11 +87,141 @@ export function useGlobalAumRoom() {
   const isJoined = status === "joined";
 
   useEffect(() => {
+    audioPreferencesRef.current = audioPreferences;
+  }, [audioPreferences]);
+
+  useEffect(() => {
     setMicAvailable(
       typeof navigator !== "undefined" &&
         !!navigator.mediaDevices?.getUserMedia,
     );
   }, []);
+
+  /** Master volume controls the entire playback stream: remote chanters + your own monitor. */
+  function applyMasterVolume(volume: number) {
+    for (const { el } of audioBySid.current.values()) {
+      el.volume = volume;
+    }
+    const monitor = localMicMonitorRef.current?.el;
+    if (monitor) monitor.volume = volume;
+  }
+
+  function updateAudioPreferences(
+    patch: Partial<AudioPreferences>,
+    options?: { persist?: boolean },
+  ) {
+    setAudioPreferences((current) => {
+      const next = { ...current, ...patch };
+      audioPreferencesRef.current = next;
+      if (options?.persist !== false) {
+        saveAudioPreferences(next);
+      }
+      return next;
+    });
+  }
+
+  function setMasterVolume(volume: number) {
+    const clamped = Math.min(1, Math.max(0, volume));
+    updateAudioPreferences({ masterVolume: clamped });
+    applyMasterVolume(clamped);
+  }
+
+  function setMicGain(gain: number) {
+    const clamped = Math.min(audioConfig.mic.maxGain, Math.max(0, gain));
+    updateAudioPreferences({ micGain: clamped });
+    audioSessionRef.current.setMicGain(clamped);
+  }
+
+  async function acquireRawMic(
+    prefs: AudioPreferences = audioPreferencesRef.current,
+  ): Promise<MediaStream> {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error(
+        "Microphone needs HTTPS (or localhost). Add TLS to your site to chant.",
+      );
+    }
+    return navigator.mediaDevices.getUserMedia({
+      audio: buildAudioCaptureOptions(isIOSDevice(), prefs),
+    });
+  }
+
+  /** Wraps the raw mic in the gain + noise-gate chain (falls back to raw on failure). */
+  function processedMicTrack(rawStream: MediaStream): MediaStreamTrack {
+    const rawTrack = rawStream.getAudioTracks()[0];
+    if (!rawTrack) throw new Error("No microphone track available");
+    const processed = audioSessionRef.current.buildMicChain(
+      rawTrack,
+      audioPreferencesRef.current.micGain,
+      audioPreferencesRef.current.noiseSuppression,
+    );
+    return processed ?? rawTrack;
+  }
+
+  async function enableMic() {
+    if (localMicTrackRef.current) return;
+
+    const rawStream = await acquireRawMic();
+    rawMicStreamRef.current = rawStream;
+
+    const micTrack = new LocalAudioTrack(
+      processedMicTrack(rawStream),
+      undefined,
+      true,
+    );
+    localMicTrackRef.current = micTrack;
+    setLocalMicTrack(micTrack.mediaStreamTrack);
+
+    await room.localParticipant.publishTrack(micTrack);
+    setMicEnabled(true);
+    attachLocalMonitor(micTrack);
+    startMicMeter();
+  }
+
+  async function disableMic() {
+    stopMicMeter();
+    detachLocalMonitor();
+
+    const micTrack = localMicTrackRef.current;
+    if (micTrack) {
+      try {
+        await room.localParticipant.unpublishTrack(micTrack);
+      } finally {
+        micTrack.stop();
+      }
+    }
+    localMicTrackRef.current = null;
+
+    audioSessionRef.current.teardownMicChain();
+    rawMicStreamRef.current?.getTracks().forEach((t) => t.stop());
+    rawMicStreamRef.current = null;
+
+    setLocalMicTrack(null);
+    setMicEnabled(false);
+  }
+
+  async function toggleMic(enabled: boolean) {
+    setError(null);
+    try {
+      if (enabled) {
+        await enableMic();
+      } else {
+        await disableMic();
+      }
+    } catch (e) {
+      await disableMic().catch(() => {});
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /**
+   * "Noise reduction" is our own Web Audio noise gate (not the browser's
+   * speech noiseSuppression, which ducks sustained tones). Toggling it is live —
+   * no mic re-capture or track swap needed.
+   */
+  function setNoiseSuppression(enabled: boolean) {
+    updateAudioPreferences({ noiseSuppression: enabled });
+    audioSessionRef.current.setNoiseGate(enabled);
+  }
 
   function attachRemoteAudio(track: Track) {
     if (track.kind !== Track.Kind.Audio || !track.sid || !audioBinRef.current) {
@@ -94,6 +232,7 @@ export function useGlobalAumRoom() {
     const el = track.attach() as HTMLMediaElement;
     el.autoplay = true;
     el.setAttribute("playsinline", "true");
+    el.volume = audioPreferencesRef.current.masterVolume;
     audioBinRef.current.appendChild(el);
     audioBySid.current.set(track.sid, { track, el });
 
@@ -140,6 +279,7 @@ export function useGlobalAumRoom() {
     const el = track.attach() as HTMLMediaElement;
     el.autoplay = true;
     el.setAttribute("playsinline", "true");
+    el.volume = audioPreferencesRef.current.masterVolume;
     audioBinRef.current.appendChild(el);
     localMicMonitorRef.current = { track, el };
     void el.play().catch(() => {});
@@ -181,23 +321,11 @@ export function useGlobalAumRoom() {
       cancelAnimationFrame(micLevelRafRef.current);
       micLevelRafRef.current = null;
     }
-    audioSessionRef.current.setMicTrack(null);
     setMicLevel(0);
   }
 
-  function startMicMeter(track: LocalAudioTrack, monitorEl: HTMLMediaElement | null) {
+  function startMicMeter() {
     stopMicMeter();
-
-    if (monitorEl) {
-      audioSessionRef.current.setMicMonitor(monitorEl);
-      monitorEl.addEventListener(
-        "playing",
-        () => audioSessionRef.current.setMicMonitor(monitorEl),
-        { once: true },
-      );
-    } else {
-      audioSessionRef.current.setMicTrack(track.mediaStreamTrack);
-    }
 
     const analyser = audioSessionRef.current.micMeterAnalyserNode;
     if (!analyser) return;
@@ -271,7 +399,7 @@ export function useGlobalAumRoom() {
     };
   }, [room]);
 
-  async function join(opts: { withMic: boolean }) {
+  async function join() {
     setStatus("joining");
     setError(null);
 
@@ -288,27 +416,8 @@ export function useGlobalAumRoom() {
 
       await room.connect(data.url, data.token);
       startAudioSession();
-
-      if (opts.withMic) {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error(
-            "Microphone needs HTTPS (or localhost). On HTTP use “Listen only”, or add TLS to your site.",
-          );
-        }
-        const micTrack = await createLocalAudioTrack(
-          buildAudioCaptureOptions(isIOSDevice()),
-        );
-        localMicTrackRef.current = micTrack;
-        setLocalMicTrack(micTrack.mediaStreamTrack);
-        await room.localParticipant.publishTrack(micTrack);
-        setMicEnabled(true);
-        const monitorEl = attachLocalMonitor(micTrack);
-        void startMicMeter(micTrack, monitorEl);
-      } else {
-        setMicEnabled(false);
-        setLocalMicTrack(null);
-        stopMicMeter();
-      }
+      setMicEnabled(false);
+      setLocalMicTrack(null);
 
       for (const p of room.remoteParticipants.values()) {
         for (const pub of p.getTrackPublications()) {
@@ -321,9 +430,7 @@ export function useGlobalAumRoom() {
       setStatus("joined");
     } catch (e) {
       stopAudioSession();
-      localMicTrackRef.current?.stop();
-      localMicTrackRef.current = null;
-      setLocalMicTrack(null);
+      await disableMic().catch(() => {});
       try {
         await room.disconnect();
       } catch {
@@ -340,21 +447,10 @@ export function useGlobalAumRoom() {
     setError(null);
 
     try {
+      await disableMic().catch(() => {});
       stopAudioSession();
-      if (localMicTrackRef.current) {
-        try {
-          await room.localParticipant.unpublishTrack(localMicTrackRef.current);
-        } finally {
-          localMicTrackRef.current.stop();
-          localMicTrackRef.current = null;
-          setLocalMicTrack(null);
-        }
-      }
-
       await room.disconnect();
       clearRemoteAudio();
-      setMicEnabled(false);
-      setLocalMicTrack(null);
       setStatus("idle");
       resetRoom();
     } catch (e) {
@@ -376,6 +472,11 @@ export function useGlobalAumRoom() {
     audioBinRef,
     localMicTrack,
     waveformAnalyserRef,
+    audioPreferences,
+    setMasterVolume,
+    setMicGain,
+    setNoiseSuppression,
+    toggleMic,
     join,
     leave,
   };

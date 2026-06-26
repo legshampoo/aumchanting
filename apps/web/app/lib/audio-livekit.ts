@@ -9,6 +9,7 @@ import {
   audioConfig,
   type AudioPublishPreset,
 } from "../audio-config";
+import type { AudioPreferences } from "../audio-config";
 
 const publishPresetByName: Record<AudioPublishPreset, AudioPreset> = {
   telephone: AudioPresets.telephone,
@@ -29,13 +30,23 @@ export function buildPublishDefaults(): TrackPublishOptions {
   };
 }
 
-export function buildAudioCaptureOptions(isIOS: boolean): AudioCaptureOptions {
+export function buildAudioCaptureOptions(
+  isIOS: boolean,
+  prefs?: Pick<AudioPreferences, "echoCancellation">,
+): AudioCaptureOptions {
   return {
-    echoCancellation: audioConfig.capture.echoCancellation,
-    noiseSuppression: audioConfig.capture.noiseSuppression,
+    echoCancellation: prefs?.echoCancellation ?? audioConfig.capture.echoCancellation,
+    // Browser noiseSuppression is built for speech and progressively ducks a
+    // sustained Om (it treats the steady tone as background noise). We disable
+    // it and instead apply our own noise gate in the Web Audio chain, which
+    // never attenuates the tone itself.
+    noiseSuppression: false,
     autoGainControl: isIOS
       ? audioConfig.iosAutoGainControl
       : audioConfig.defaultAutoGainControl,
+    // Safari/iOS can enable system Voice Isolation by default, which ducks a
+    // sustained Om over time. Force it off so the held tone stays level.
+    voiceIsolation: false,
   };
 }
 

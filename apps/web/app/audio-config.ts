@@ -43,14 +43,34 @@ export const audioConfig = {
   },
 
   /**
-   * iOS WebKit often needs AGC for usable mic levels; other platforms keep it off
-   * so chant timbre stays natural.
+   * Automatic Gain Control is OFF on all platforms: AGC pulls down sustained loud
+   * input (e.g. a held "aum"), causing the volume to fade while chanting. Users
+   * set loudness manually via the Input volume slider instead.
    */
-  iosAutoGainControl: true,
+  iosAutoGainControl: false,
   defaultAutoGainControl: false,
 
   playback: {
     /** Hear your own mic locally while chanting. Use headphones to avoid feedback. */
     localMonitor: true,
+    /** Default circle / remote playback volume (0–1). */
+    defaultMasterVolume: 1,
+    /** Default self-monitor volume when chanting (0–1). */
+    defaultSelfMonitorVolume: 0.85,
+  },
+
+  mic: {
+    /** Default mic input gain (1 = unity = 100%). Slider ranges 0–maxGain. */
+    defaultGain: 1,
+    /** Max mic input gain (1 = 100%, no boost above unity). */
+    maxGain: 1,
   },
 } as const;
+
+export type AudioPreferences = {
+  masterVolume: number;
+  selfMonitorVolume: number;
+  micGain: number;
+  noiseSuppression: boolean;
+  echoCancellation: boolean;
+};
