@@ -33,12 +33,21 @@ export const metadata: Metadata = {
       "A live, global OM chanting circle. Join anytime. Chant, listen, or simply be present.",
     siteName: "AUM Chanting",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "AUM Chanting — One Sound. One Breath. One Global Circle.",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "AUM Chanting",
     description:
       "A live, global OM chanting circle. Join anytime. Chant, listen, or simply be present.",
+    images: ["/opengraph-image.jpg"],
   },
 };
 
